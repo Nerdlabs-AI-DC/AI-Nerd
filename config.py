@@ -4,22 +4,22 @@ import os
 import json
 from datetime import datetime, timezone
 
-# Discord & OpenAI credentials
-token = os.getenv("DISCORD_TOKEN", "MTM3MTE3NjQyNTg1OTcxMTA2Ng.GH7hzm.prQ1i1GjpnakS9L8WVFFecVNWZBpWDxP2qaBN8")
-openai_key = os.getenv("OPENAI_API_KEY", "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")
+# Tokens and stuff
+token = os.getenv("DISCORD_TOKEN", "MTM3MjEzMDM2NzYzNjUwNDYyNw.GXNqYH.JBCYLaX4L3npMhv9OP250Egk84IEkQlWn2jUg8") # Testing bot token
+openai_key = os.getenv("OPENAI_API_KEY", "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")
 
-# Bot configuration
+# Main settings
 RESPOND_TO_PINGS = True
 HISTORY_SIZE = 10
 MODEL = "gpt-4.1-mini"
-DEBUG = False
+DEBUG = False # I recommend enabling this while testing
 
-# Memory file paths
+# Files
 SUMMARIES_FILE = "summaries.json"
 FULL_MEMORY_FILE = "memories.json"
 ALLOWED_CHANNELS_FILE = "active_channels.json"
 
-# System prompt content
+# System prompt
 SYSTEM_PROMPT = f"""
 Character:
 You are AI Nerd 2, the nerdiest chatbot on Discord.
@@ -106,6 +106,7 @@ If none of these conditions are met, cancel response.
 
 JOIN_MSG = "Erm hi, I'm AI Nerd <:uhm_actually:1371757874950311976>. Ping me to talk <:man_face:1371761643519869044>"
 
+# Idk why this is here and not in bot.py
 with open(ALLOWED_CHANNELS_FILE, 'r') as f:
     ALLOWED_CHANNELS = json.load(f)
 

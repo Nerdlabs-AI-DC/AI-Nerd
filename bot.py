@@ -28,12 +28,10 @@ from pathlib import Path
 SETTINGS_PATH = Path('serversettings.json')
 
 def load_settings() -> dict:
-    # Als het bestand niet bestaat, maak een lege dict
     if not SETTINGS_PATH.exists():
         SETTINGS_PATH.write_text("{}", encoding="utf-8")
         return {}
 
-    # Probeer te laden, en val terug op lege dict bij fouten of verkeerde type
     try:
         data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, UnicodeDecodeError):
@@ -50,14 +48,14 @@ def save_settings(settings: dict):
 
 # Rate limiting
 RATE_LIMIT = 10
-RATE_PERIOD = 60  # seconds
+RATE_PERIOD = 60
 user_requests = defaultdict(lambda: deque())
 
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix='/', intents=intents)
 
-# Setup function-call specs
+# Functions
 tools = [
     {
         'name': 'save_memory',
@@ -116,11 +114,10 @@ async def on_ready():
 
 @bot.event
 async def on_message(message: discord.Message):
-    # Ignore bot itself
+    # Condition checking & free will
     if message.author.id == bot.user.id:
         return
 
-    # Permissions check
     is_dm = isinstance(message.channel, discord.DMChannel)
     is_allowed = message.channel.id in ALLOWED_CHANNELS
     is_pinged = RESPOND_TO_PINGS and bot.user in message.mentions
@@ -172,7 +169,6 @@ async def on_message(message: discord.Message):
     else:
         freewill = None
 
-    # Rate limit
     user_id = message.author.id
     now = time.time()
     dq = user_requests[user_id]
@@ -188,7 +184,7 @@ async def on_message(message: discord.Message):
         return
     dq.append(now)
 
-    # Collect recent history
+    # System prompt building
     history = []
     async for msg in message.channel.history(limit=HISTORY_SIZE+1, oldest_first=False):
         if msg.id == message.id:
@@ -200,12 +196,10 @@ async def on_message(message: discord.Message):
             break
     history.reverse()
 
-    # Load memory summaries
     with open('summaries.json', 'r', encoding='utf-8') as f:
         summaries = json.load(f)
     summary_list = "\n".join(f"{i+1}. {s}" for i, s in enumerate(summaries))
 
-    # Build system prompt
     channel_name = message.channel.name if not is_dm else 'DM'
     guild_name = message.guild.name if not is_dm else 'DM'
     system_content = (
@@ -215,16 +209,13 @@ async def on_message(message: discord.Message):
         f"Current memories:\n{summary_list}"
     )
 
-    # Build user content including any images
     user_content = []
     if message.content:
         user_content.append({'type': 'text', 'text': f"{message.author.display_name} ({message.author.name}): {message.content}"})
     for attach in message.attachments:
-        # Only include image attachments
         if attach.content_type and attach.content_type.startswith('image/'):
             user_content.append({'type': 'image_url', 'image_url': {'url': attach.url}})
 
-    # Final message list
     if freewill:
         messages = [
         {'role': 'system', 'content': SYSTEM_SHORT},
@@ -239,11 +230,11 @@ async def on_message(message: discord.Message):
         {'role': 'user', 'content': user_content}
         ]
 
+    # Api request
     if DEBUG:
         print('--- REQUEST ---')
         print(json.dumps(messages, ensure_ascii=False, indent=2))
 
-    # Query OpenAI with function calling
     if freewill:
         completion = await generate_response(
             messages,
@@ -259,7 +250,7 @@ async def on_message(message: discord.Message):
             )
     msg_obj = completion.choices[0].message
 
-    # Handle function call
+    # Functions
     if msg_obj.function_call is not None:
         name = msg_obj.function_call.name
         args = json.loads(msg_obj.function_call.arguments or '{}')
@@ -294,6 +285,7 @@ async def on_message(message: discord.Message):
         )
         msg_obj = completion.choices[0].message
 
+    # Sending response
     if DEBUG:
         print('--- RESPONSE ---')
         print(msg_obj.content)
@@ -302,11 +294,13 @@ async def on_message(message: discord.Message):
     else:
         await message.reply(msg_obj.content, mention_author=False)
     
+# Server join message
 @bot.event
 async def on_guild_join(guild):
      if guild.system_channel and guild.system_channel.permissions_for(guild.me).send_messages:
         await guild.system_channel.send(JOIN_MSG)
 
+# Commands, i want to move these to a seperate file
 @bot.tree.command(name="activate", description="Make AI Nerd respond to all messages in this channel (or disable it)")
 async def activate(interaction: discord.Interaction):
     if not interaction.guild:
@@ -324,7 +318,6 @@ async def activate(interaction: discord.Interaction):
     else:
         config.ALLOWED_CHANNELS.append(chan_id)
         action = "now"
-    # Bewaar naar JSON
     config.save_allowed_channels()
     await interaction.response.send_message(
         f"AI Nerd will {action} respond to all messages in <#{chan_id}>.",
@@ -354,5 +347,6 @@ async def freewill_rate(interaction: discord.Interaction, rate: str):
 
     await interaction.response.send_message(f"Free will rate set to **{rate}**.")
 
+# Runs the bot
 if __name__ == '__main__':
     bot.run(TOKEN)

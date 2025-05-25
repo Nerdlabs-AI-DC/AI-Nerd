@@ -4,7 +4,6 @@ from config import SUMMARIES_FILE, FULL_MEMORY_FILE
 
 
 def init_memory_files():
-    # Ensure memory files exist
     for path in (SUMMARIES_FILE, FULL_MEMORY_FILE):
         if not os.path.isfile(path):
             with open(path, 'w', encoding='utf-8') as f:
@@ -12,9 +11,6 @@ def init_memory_files():
 
 
 def save_memory(summary: str, full_memory: str) -> int:
-    """
-    Append summary and full memory, return new index.
-    """
     with open(SUMMARIES_FILE, 'r+', encoding='utf-8') as sf, \
          open(FULL_MEMORY_FILE, 'r+', encoding='utf-8') as mf:
         summaries = json.load(sf)
@@ -31,9 +27,6 @@ def save_memory(summary: str, full_memory: str) -> int:
 
 
 def get_memory_detail(index: int) -> str:
-    """
-    Return the full memory at 1-based index.
-    """
     with open(FULL_MEMORY_FILE, 'r', encoding='utf-8') as f:
         memories = json.load(f)
     if 1 <= index <= len(memories):
