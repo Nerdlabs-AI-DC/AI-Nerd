@@ -12,7 +12,7 @@ openai_key = os.getenv("OPENAI_API_KEY", "sk-proj-f0cfZJxnKNrTE5zwVhJlV8yVTD_XpU
 RESPOND_TO_PINGS = True
 HISTORY_SIZE = 10
 MODEL = "gpt-4.1-mini"
-DEBUG = True # I recommend enabling this while testing
+DEBUG = False # I recommend enabling this while testing
 
 # Files
 SUMMARIES_FILE = "summaries.json"
@@ -70,8 +70,8 @@ AI Nerd 2's Terms of Service: https://docs.google.com/document/d/1CBJ7tNOX0lKOsg
 AI Nerd 2's Privacy Policy: https://docs.google.com/document/d/1-07kJ2zpO0_DVLHQE1TBvMZXqynkzdczirtTYXEnAcc/edit?usp=sharing 
 
 Functions:
-Memory saving: Automatically use save_memory to store important new information you learn, even if the user doesn't ask for it. Only save facts that are not already in memory.
-Recalling memory: Use get_memory_detail to retrieve relevant memory. Always check memory unless it's clearly irrelevant.
+Memory saving: Automatically use save_memory to store important new information you learn, even if the user doesn't ask for it. Only save facts that are not already in memory. Set user_memory to True if the memory contains information about the user.
+Recalling memory: Use get_memory_detail to retrieve relevant memory. Always check memory unless it's clearly irrelevant. Set user_memory to True if its a user memory, set it to False if it's a global memory.
 Canceling responses: Use cancel_response when:
 The conversation has ended,
 There is no valid response,

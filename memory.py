@@ -38,19 +38,20 @@ def get_memory_detail(index: int) -> str:
 
 
 def save_user_memory(user_id: str, summary: str, full_memory: str) -> int:
+    user_key = str(user_id)
     with open(USER_MEMORIES_FILE, 'r+', encoding='utf-8') as f:
         try:
             data = json.load(f)
         except json.JSONDecodeError:
             data = {}
-        if user_id not in data:
-            data[user_id] = {"summaries": [], "memories": []}
-        data[user_id]["summaries"].append(summary)
-        data[user_id]["memories"].append(full_memory)
+        if user_key not in data:
+            data[user_key] = {"summaries": [], "memories": []}
+        data[user_key]["summaries"].append(summary)
+        data[user_key]["memories"].append(full_memory)
         f.seek(0)
         json.dump(data, f, indent=2, ensure_ascii=False)
         f.truncate()
-    return len(data[user_id]["summaries"])
+    return len(data[user_key]["summaries"])
 
 
 def get_user_memory_detail(user_id: str, index: int) -> str:

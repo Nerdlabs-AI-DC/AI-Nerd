@@ -64,9 +64,10 @@ tools = [
             'type': 'object',
             'properties': {
                 'summary': {'type': 'string'},
-                'full_memory': {'type': 'string'}
+                'full_memory': {'type': 'string'},
+                'user_memory': {'type': 'boolean'}
             },
-            'required': ['summary', 'full_memory']
+            'required': ['summary', 'full_memory', 'user_memory']
         }
     },
     {
@@ -74,31 +75,11 @@ tools = [
         'description': 'Retrieve a memory by its index.',
         'parameters': {
             'type': 'object',
-            'properties': {'index': {'type': 'integer'}},
-            'required': ['index']
-        }
-    },
-    {
-        'name': 'save_user_memory',
-        'description': 'Store a new memory for a specific user.',
-        'parameters': {
-            'type': 'object',
             'properties': {
-                'summary': {'type': 'string'},
-                'full_memory': {'type': 'string'}
+                'index': {'type': 'integer'},
+                'user_memory': {'type': 'boolean'}
             },
-            'required': ['summary', 'full_memory']
-        }
-    },
-    {
-        'name': 'get_user_memory_detail',
-        'description': 'Retrieve a user memory by its index.',
-        'parameters': {
-            'type': 'object',
-            'properties': {
-                'index': {'type': 'integer'}
-            },
-            'required': ['index']
+            'required': ['index', 'user_memory']
         }
     },
     {
@@ -223,13 +204,22 @@ async def on_message(message: discord.Message):
         summaries = json.load(f)
     summary_list = "\n".join(f"{i+1}. {s}" for i, s in enumerate(summaries))
 
+    user_key = str(message.author.id)
+    with open('user_memories.json', 'r', encoding='utf-8') as f:
+        data = json.load(f)
+        if user_key in data:
+            user_summaries = "\n".join(f"{i+1}. {s}" for i, s in enumerate(data[user_key]["summaries"]))
+        else:
+            user_summaries = "No user memories found."
+
     channel_name = message.channel.name if not is_dm else 'DM'
     guild_name = message.guild.name if not is_dm else 'DM'
     system_content = (
         f"Server: {guild_name}\n"
         f"Channel: {channel_name}\n\n"
         f"{SYSTEM_PROMPT}\n"
-        f"Current memories:\n{summary_list}"
+        f"Global memories:\n{summary_list}\n"
+        f"User memories for {message.author.name}:\n{user_summaries}"
     )
 
     user_content = []
@@ -280,18 +270,19 @@ async def on_message(message: discord.Message):
         if DEBUG:
             print(f"Function {name} called.")
         if name == 'save_memory':
-            idx = save_memory(args['summary'], f"({message.author}) {args['full_memory']}")
-            messages.append({'role': 'system', 'content': f'You just saved a new memory. Memory index: {idx}.'})
+            if 'user_memory' in args and args['user_memory']:
+                idx = save_user_memory(message.author.id, args['summary'], args['full_memory'])
+                messages.append({'role': 'system', 'content': f'User memory saved. Memory index for user {message.author.id}: {idx}.'})
+            else:
+                idx = save_memory(args['summary'], args['full_memory'])
+                messages.append({'role': 'system', 'content': f'You just saved a new memory. Memory index: {idx}.'})
         elif name == 'get_memory_detail':
-            detail = get_memory_detail(int(args['index']))
-            messages.append({'role': 'system', 'content': f'You are recalling a stored memory. Memory content: {detail}.'})
-        elif name == 'save_user_memory':
-            idx = save_user_memory(message.author.id, args['summary'], args['full_memory'])
-            messages.append({'role': 'system', 'content': f'User memory saved. Memory index for user {message.author.id}: {idx}.'})
-        elif name == 'get_user_memory_detail':
-            detail = get_user_memory_detail(message.author.id, int(args['index']))
-            messages.append({'role': 'system', 'content': f'Recalling user memory for {message.author.id}: {detail}.'})
-            print(f"index: {args['index']}, detail: {detail}")
+            if 'user_memory' in args and args['user_memory']:
+                detail = get_user_memory_detail(message.author.id, int(args['index']))
+                messages.append({'role': 'system', 'content': f'Recalling user memory for {message.author.id}: {detail}.'})
+            else:
+                detail = get_memory_detail(int(args['index']))
+                messages.append({'role': 'system', 'content': f'You are recalling a stored memory. Memory content: {detail}.'})
         elif name == 'set_status':
             new_status = args['status']
             await bot.change_presence(activity=discord.CustomActivity(new_status))
