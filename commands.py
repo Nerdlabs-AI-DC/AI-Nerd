@@ -2,6 +2,8 @@ from discord import app_commands, Interaction
 import discord
 import config
 import json
+import os
+import psutil
 
 def setup(bot):
     @bot.tree.command(name="activate", description="Make AI Nerd respond to all messages in this channel (or disable it)")
@@ -73,3 +75,23 @@ def setup(bot):
             view=view,
             ephemeral=True
         )
+
+    @bot.tree.command(name="status", description="Show system status")
+    async def status(interaction: Interaction):
+        await interaction.response.defer(thinking=True)
+        latency_ms = round(interaction.client.latency * 1000, 2)
+        cpu_usage = psutil.cpu_percent(interval=0.1)
+        mem = psutil.virtual_memory()
+        system_ram_usage = mem.percent
+        proc = psutil.Process(os.getpid())
+        bot_cpu_usage = proc.cpu_percent(interval=0.1)
+        bot_ram_usage = proc.memory_info().rss / (1024 * 1024)
+        message = (
+            "### 🟢 AI Nerd 2 is online\n"
+            f"> Latency: {latency_ms} ms\n"
+            f"> System CPU Usage: {cpu_usage}%\n"
+            f"> System RAM Usage: {system_ram_usage}%\n"
+            f"> Bot CPU Usage: {bot_cpu_usage}%\n"
+            f"> Bot RAM Usage: {bot_ram_usage:.2f} MB"
+        )
+        await interaction.followup.send(message)
