@@ -11,7 +11,6 @@ import random
 import datetime
 from config import (
     token as TOKEN,
-    ALLOWED_CHANNELS,
     RESPOND_TO_PINGS,
     HISTORY_SIZE,
     DEBUG,
@@ -54,6 +53,9 @@ user_requests = defaultdict(lambda: deque())
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix='/', intents=intents)
+
+import commands
+commands.setup(bot)
 
 # Functions
 tools = [
@@ -123,7 +125,12 @@ async def on_message(message: discord.Message):
         return
 
     is_dm = isinstance(message.channel, discord.DMChannel)
-    is_allowed = message.channel.id in ALLOWED_CHANNELS
+    allowed = []
+    if message.guild:
+        settings = load_settings()
+        guild_settings = settings.get(str(message.guild.id), {})
+        allowed = guild_settings.get("allowed_channels", [])
+    is_allowed = message.channel.id in allowed
     is_pinged = RESPOND_TO_PINGS and bot.user in message.mentions
     if not (is_dm or is_allowed or is_pinged):
         settings = load_settings()
@@ -320,53 +327,6 @@ async def on_message(message: discord.Message):
 async def on_guild_join(guild):
      if guild.system_channel and guild.system_channel.permissions_for(guild.me).send_messages:
         await guild.system_channel.send(JOIN_MSG)
-
-# Commands, i want to move these to a seperate file
-@bot.tree.command(name="activate", description="Make AI Nerd respond to all messages in this channel (or disable it)")
-async def activate(interaction: discord.Interaction):
-    if not interaction.guild:
-        await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
-        return
-
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("You must be a server administrator to use this command.", ephemeral=True)
-        return
-
-    chan_id = interaction.channel_id
-    if chan_id in config.ALLOWED_CHANNELS:
-        config.ALLOWED_CHANNELS.remove(chan_id)
-        action = "no longer"
-    else:
-        config.ALLOWED_CHANNELS.append(chan_id)
-        action = "now"
-    config.save_allowed_channels()
-    await interaction.response.send_message(
-        f"AI Nerd will {action} respond to all messages in <#{chan_id}>.",
-        ephemeral=False
-    )
-
-@bot.tree.command(name="freewill-rate", description="Control how often AI Nerd 2 responds without being pinged")
-@app_commands.describe(rate="The frequency of random responses")
-@app_commands.choices(rate=[
-    app_commands.Choice(name="Low", value="low"),
-    app_commands.Choice(name="Medium", value="mid"),
-    app_commands.Choice(name="High", value="high"),
-])
-async def freewill_rate(interaction: discord.Interaction, rate: str):
-    if not interaction.guild:
-        return await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
-    
-    if not interaction.user.guild_permissions.administrator:
-        return await interaction.response.send_message("You must be a server administrator to use this command.", ephemeral=True)
-
-    settings = load_settings()
-    sid = str(interaction.guild.id)
-    guild_settings = settings.get(sid, {})
-    guild_settings['freewill_rate'] = rate
-    settings[sid] = guild_settings
-    save_settings(settings)
-
-    await interaction.response.send_message(f"Free will rate set to **{rate}**.")
 
 # Runs the bot
 if __name__ == '__main__':

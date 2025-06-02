@@ -17,7 +17,6 @@ DEBUG = False # I recommend enabling this while testing
 # Files
 SUMMARIES_FILE = "summaries.json"
 FULL_MEMORY_FILE = "memories.json"
-ALLOWED_CHANNELS_FILE = "active_channels.json"
 USER_MEMORIES_FILE = "user_memories.json"
 
 # System prompt
@@ -106,11 +105,3 @@ If none of these conditions are met, cancel response.
 """
 
 JOIN_MSG = "Erm hi, I'm AI Nerd <:uhm_actually:1371757874950311976>. Ping me to talk <:man_face:1371761643519869044>"
-
-# Idk why this is here and not in bot.py
-with open(ALLOWED_CHANNELS_FILE, 'r') as f:
-    ALLOWED_CHANNELS = json.load(f)
-
-def save_allowed_channels():
-    with open(ALLOWED_CHANNELS_FILE, 'w') as f:
-        json.dump(ALLOWED_CHANNELS, f)
