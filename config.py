@@ -1,12 +1,12 @@
-# version: alpha 1.6.1
+# version: beta 1.0.0
 
 import os
 import json
 from datetime import datetime, timezone
 
 # Tokens and stuff
-token = os.getenv("DISCORD_TOKEN", "MTM3MjEzMDM2NzYzNjUwNDYyNw.GXNqYH.JBCYLaX4L3npMhv9OP250Egk84IEkQlWn2jUg8") # Testing bot token
-openai_key = os.getenv("OPENAI_API_KEY", "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")
+token = os.getenv("DISCORD_TOKEN", "(token)")
+openai_key = os.getenv("OPENAI_API_KEY", "(key)")
 
 # Main settings
 RESPOND_TO_PINGS = True
