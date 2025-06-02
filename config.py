@@ -12,12 +12,13 @@ openai_key = os.getenv("OPENAI_API_KEY", "sk-proj-f0cfZJxnKNrTE5zwVhJlV8yVTD_XpU
 RESPOND_TO_PINGS = True
 HISTORY_SIZE = 10
 MODEL = "gpt-4.1-mini"
-DEBUG = False # I recommend enabling this while testing
+DEBUG = True # I recommend enabling this while testing
 
 # Files
 SUMMARIES_FILE = "summaries.json"
 FULL_MEMORY_FILE = "memories.json"
 ALLOWED_CHANNELS_FILE = "active_channels.json"
+USER_MEMORIES_FILE = "user_memories.json"
 
 # System prompt
 SYSTEM_PROMPT = f"""

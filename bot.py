@@ -20,7 +20,7 @@ from config import (
     FREEWILL,
     JOIN_MSG
 )
-from memory import init_memory_files, save_memory, get_memory_detail
+from memory import init_memory_files, save_memory, get_memory_detail, save_user_memory, get_user_memory_detail
 from openai_client import generate_response
 
 from pathlib import Path
@@ -75,6 +75,29 @@ tools = [
         'parameters': {
             'type': 'object',
             'properties': {'index': {'type': 'integer'}},
+            'required': ['index']
+        }
+    },
+    {
+        'name': 'save_user_memory',
+        'description': 'Store a new memory for a specific user.',
+        'parameters': {
+            'type': 'object',
+            'properties': {
+                'summary': {'type': 'string'},
+                'full_memory': {'type': 'string'}
+            },
+            'required': ['summary', 'full_memory']
+        }
+    },
+    {
+        'name': 'get_user_memory_detail',
+        'description': 'Retrieve a user memory by its index.',
+        'parameters': {
+            'type': 'object',
+            'properties': {
+                'index': {'type': 'integer'}
+            },
             'required': ['index']
         }
     },
@@ -262,6 +285,13 @@ async def on_message(message: discord.Message):
         elif name == 'get_memory_detail':
             detail = get_memory_detail(int(args['index']))
             messages.append({'role': 'system', 'content': f'You are recalling a stored memory. Memory content: {detail}.'})
+        elif name == 'save_user_memory':
+            idx = save_user_memory(message.author.id, args['summary'], args['full_memory'])
+            messages.append({'role': 'system', 'content': f'User memory saved. Memory index for user {message.author.id}: {idx}.'})
+        elif name == 'get_user_memory_detail':
+            detail = get_user_memory_detail(message.author.id, int(args['index']))
+            messages.append({'role': 'system', 'content': f'Recalling user memory for {message.author.id}: {detail}.'})
+            print(f"index: {args['index']}, detail: {detail}")
         elif name == 'set_status':
             new_status = args['status']
             await bot.change_presence(activity=discord.CustomActivity(new_status))
