@@ -133,5 +133,64 @@ def setup(bot):
         )
         msg_obj = completion.choices[0].message
         await interaction.followup.send(f"### 🎱 Magic 8-ball\n**{question}**\n{msg_obj.content}")
+
+    @fun_group.command(name="trivia", description="Play a trivia game")
+    async def eight_ball(interaction: Interaction):
+        await interaction.response.defer(thinking=True)
+        tools = [
+            {
+                'name': 'create_trivia',
+                'description': 'Create a trivia question',
+                'parameters': {
+                    'type': 'object',
+                    'properties': {
+                        'question': {'type': 'string'},
+                        'correct_answer': {'type': 'string'},
+                        'incorrect_answer1': {'type': 'string'},
+                        'incorrect_answer2': {'type': 'string'},
+                        'incorrect_answer3': {'type': 'string'}
+                    },
+                    'required': ['question', 'correct_answer', 'incorrect_answer1', 'incorrect_answer2', 'incorrect_answer3']
+                }
+            }
+        ]
+        messages = [
+        {'role': 'system', 'content': "You are an agent designed to generate trivia questions. Create a trivia question with one correct answer and three incorrect answers. The question should be engaging and suitable for a trivia game."},
+        ]
+        if DEBUG:
+            print('--- Trivia REQUEST ---')
+            print(json.dumps(messages, ensure_ascii=False, indent=2))
+        completion = await generate_response(
+            messages,
+            functions=tools,
+            function_call={"name": "create_trivia"}
+        )
+        msg_obj = completion.choices[0].message
+        args = json.loads(msg_obj.function_call.arguments or '{}')
+
+        class MyView(discord.ui.View):
+            @discord.ui.button(label=args['correct_answer'], style=discord.ButtonStyle.primary, custom_id="correct_answer")
+            async def correct_answer(self, interaction: Interaction, button: discord.ui.Button):
+                await interaction.response.send_message(f"**{args['correct_answer']}** is correct! 🎉")
+                for child in self.children:
+                    child.disabled = True
+                await interaction.message.edit(view=self)
+            @discord.ui.button(label=args['incorrect_answer1'], style=discord.ButtonStyle.primary, custom_id="option1")
+            async def option1(self, interaction: Interaction, button: discord.ui.Button):
+                await interaction.response.send_message(f"**{args['incorrect_answer1']}** is incorrect! ❌")
+                button.disabled = True
+                await interaction.message.edit(view=self)
+            @discord.ui.button(label=args['incorrect_answer2'], style=discord.ButtonStyle.primary, custom_id="option2")
+            async def option2(self, interaction: Interaction, button: discord.ui.Button):
+                await interaction.response.send_message(f"**{args['incorrect_answer2']}** is incorrect! ❌")
+                button.disabled = True
+                await interaction.message.edit(view=self)
+            @discord.ui.button(label=args['incorrect_answer3'], style=discord.ButtonStyle.primary, custom_id="option3")
+            async def option3(self, interaction: Interaction, button: discord.ui.Button):
+                await interaction.response.send_message(f"**{args['incorrect_answer3']}** is incorrect! ❌")
+                button.disabled = True
+                await interaction.message.edit(view=self)
+        view = MyView()
+        await interaction.followup.send(f"### Trivia\n{args['question']}", view=view)
     
     bot.tree.add_command(fun_group)
