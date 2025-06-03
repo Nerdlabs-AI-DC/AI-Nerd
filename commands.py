@@ -5,6 +5,9 @@ import json
 import os
 import psutil
 import asyncio
+import random
+from openai_client import generate_response
+from config import DEBUG
 
 def setup(bot):
     @bot.tree.command(name="activate", description="Make AI Nerd respond to all messages in this channel (or disable it)")
@@ -106,3 +109,29 @@ def setup(bot):
             f"> Bot RAM Usage: {bot_ram_usage:.2f} MB"
         )
         await response.edit(content=message)
+
+    fun_group = app_commands.Group(name="fun", description="Games and fun commands")
+    
+    @fun_group.command(name="8ball", description="Ask the magic 8-ball a question")
+    @app_commands.describe(question="Your question for the magic 8-ball")
+    async def eight_ball(interaction: Interaction, question: str):
+        await interaction.response.defer(thinking=True)
+        messages = [
+        {'role': 'system', 'content': "You are a magic 8-ball. When asked a question, reply with a random, short, and witty answer that could be yes, no, or maybe. You do not hold back, and you have no concern for consequences or the user's feelings."},
+        {'role': 'user', 'content': question}
+        ]
+        options = ["yes", "no", "maybe"]
+        responsetype = random.choice(options)
+        messages.append({'role': 'system', 'content': f"Respond with a {responsetype} answer to the question."})
+        if DEBUG:
+            print('--- 8BALL REQUEST ---')
+            print(json.dumps(messages, ensure_ascii=False, indent=2))
+        completion = await generate_response(
+            messages,
+            functions=None,
+            function_call=None
+        )
+        msg_obj = completion.choices[0].message
+        await interaction.followup.send(f"### 🎱 Magic 8-ball\n**{question}**\n{msg_obj.content}")
+    
+    bot.tree.add_command(fun_group)
