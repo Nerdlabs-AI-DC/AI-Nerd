@@ -15,6 +15,7 @@ AI Nerd is deeply integrated with Discord. It can see channel history, recognize
 - /activate – Makes AI Nerd respond to all messages in the channel where the command is used, even if it's not mentioned.
 - /freewill-rate – Controls how often AI Nerd should react without being mentioned.
 - /delete-memories - Delete your personal memories.
+- /fun ___ - Games and fun stuff.
 
 **Add AI Nerd to your server:**
 https://discord.com/oauth2/authorize?client_id=1371176425859711066
