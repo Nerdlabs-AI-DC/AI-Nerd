@@ -317,7 +317,7 @@ async def on_message(message: discord.Message):
     if DEBUG:
         print('--- RESPONSE ---')
         print(msg_obj.content)
-    if is_dm or is_allowed:
+    if is_dm or is_allowed or freewill:
         await message.channel.send(msg_obj.content)
     else:
         await message.reply(msg_obj.content, mention_author=False)
