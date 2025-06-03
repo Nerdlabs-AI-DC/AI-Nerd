@@ -9,6 +9,8 @@ import random
 from openai_client import generate_response
 from config import DEBUG
 
+recent_questions = []
+
 def setup(bot):
     @bot.tree.command(name="activate", description="Make AI Nerd respond to all messages in this channel (or disable it)")
     async def activate(interaction: Interaction):
@@ -148,14 +150,15 @@ def setup(bot):
                         'correct_answer': {'type': 'string'},
                         'incorrect_answer1': {'type': 'string'},
                         'incorrect_answer2': {'type': 'string'},
-                        'incorrect_answer3': {'type': 'string'}
+                        'incorrect_answer3': {'type': 'string'},
+                        'incorrect_answer4': {'type': 'string'}
                     },
-                    'required': ['question', 'correct_answer', 'incorrect_answer1', 'incorrect_answer2', 'incorrect_answer3']
+                    'required': ['question', 'correct_answer', 'incorrect_answer1', 'incorrect_answer2', 'incorrect_answer3', 'incorrect_answer4']
                 }
             }
         ]
         messages = [
-        {'role': 'system', 'content': "You are an agent designed to generate trivia questions. Create a trivia question with one correct answer and three incorrect answers. The question should be engaging and suitable for a trivia game."},
+            {'role': 'system', 'content': f"You are an agent designed to generate trivia questions. Create a trivia question with one correct answer and three incorrect answers. The question should be engaging and suitable for a trivia game.\nDo not create any of the following questions:\n{recent_questions}"},
         ]
         if DEBUG:
             print('--- Trivia REQUEST ---')
@@ -167,30 +170,34 @@ def setup(bot):
         )
         msg_obj = completion.choices[0].message
         args = json.loads(msg_obj.function_call.arguments or '{}')
-
-        class MyView(discord.ui.View):
-            @discord.ui.button(label=args['correct_answer'], style=discord.ButtonStyle.primary, custom_id="correct_answer")
-            async def correct_answer(self, interaction: Interaction, button: discord.ui.Button):
-                await interaction.response.send_message(f"**{args['correct_answer']}** is correct! 🎉")
-                for child in self.children:
-                    child.disabled = True
-                await interaction.message.edit(view=self)
-            @discord.ui.button(label=args['incorrect_answer1'], style=discord.ButtonStyle.primary, custom_id="option1")
-            async def option1(self, interaction: Interaction, button: discord.ui.Button):
-                await interaction.response.send_message(f"**{args['incorrect_answer1']}** is incorrect! ❌")
-                button.disabled = True
-                await interaction.message.edit(view=self)
-            @discord.ui.button(label=args['incorrect_answer2'], style=discord.ButtonStyle.primary, custom_id="option2")
-            async def option2(self, interaction: Interaction, button: discord.ui.Button):
-                await interaction.response.send_message(f"**{args['incorrect_answer2']}** is incorrect! ❌")
-                button.disabled = True
-                await interaction.message.edit(view=self)
-            @discord.ui.button(label=args['incorrect_answer3'], style=discord.ButtonStyle.primary, custom_id="option3")
-            async def option3(self, interaction: Interaction, button: discord.ui.Button):
-                await interaction.response.send_message(f"**{args['incorrect_answer3']}** is incorrect! ❌")
-                button.disabled = True
-                await interaction.message.edit(view=self)
-        view = MyView()
+        view = discord.ui.View()
+        recent_questions.append(args["question"])
+        if len(recent_questions) > 10:
+            recent_questions.pop(0)
+        buttons_data = [
+            {"label": args["correct_answer"], "custom_id": "correct_answer", "correct": True},
+            {"label": args["incorrect_answer1"], "custom_id": "option1", "correct": False},
+            {"label": args["incorrect_answer2"], "custom_id": "option2", "correct": False},
+            {"label": args["incorrect_answer3"], "custom_id": "option3", "correct": False},
+            {"label": args["incorrect_answer4"], "custom_id": "option4", "correct": False},
+        ]
+        random.shuffle(buttons_data)
+        for btn in buttons_data:
+            async def callback(interaction: Interaction, btn=btn):
+                if btn["correct"]:
+                    await interaction.response.send_message(f"**{btn['label']}** is correct! 🎉")
+                    for child in view.children:
+                        child.disabled = True
+                else:
+                    await interaction.response.send_message(f"**{btn['label']}** is incorrect! ❌")
+                    for child in view.children:
+                        if child.custom_id == btn["custom_id"]:
+                            child.disabled = True
+                            break
+                await interaction.message.edit(view=view)
+            button = discord.ui.Button(label=btn["label"], style=discord.ButtonStyle.primary, custom_id=btn["custom_id"])
+            button.callback = callback
+            view.add_item(button)
         await interaction.followup.send(f"### Trivia\n{args['question']}", view=view)
     
     bot.tree.add_command(fun_group)
