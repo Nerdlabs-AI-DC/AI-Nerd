@@ -4,10 +4,6 @@ import os
 import json
 from datetime import datetime, timezone
 
-# Tokens and stuff
-token = os.getenv("DISCORD_TOKEN", "(token)")
-openai_key = os.getenv("OPENAI_API_KEY", "(key)")
-
 # Main settings
 RESPOND_TO_PINGS = True
 HISTORY_SIZE = 10
