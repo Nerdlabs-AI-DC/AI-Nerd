@@ -4,6 +4,7 @@ import config
 import json
 import os
 import psutil
+import asyncio
 
 def setup(bot):
     @bot.tree.command(name="activate", description="Make AI Nerd respond to all messages in this channel (or disable it)")
@@ -84,8 +85,18 @@ def setup(bot):
         mem = psutil.virtual_memory()
         system_ram_usage = mem.percent
         proc = psutil.Process(os.getpid())
-        bot_cpu_usage = proc.cpu_percent(interval=0.1)
         bot_ram_usage = proc.memory_info().rss / (1024 * 1024)
+        message = (
+            "### 🟢 AI Nerd 2 is online\n"
+            f"> Latency: {latency_ms} ms\n"
+            f"> System CPU Usage: {cpu_usage}%\n"
+            f"> System RAM Usage: {system_ram_usage}%\n"
+            f"> Bot CPU Usage: calculating...\n"
+            f"> Bot RAM Usage: {bot_ram_usage:.2f} MB"
+        )
+        response = await interaction.followup.send(message)
+        proc.cpu_percent(interval=None)
+        bot_cpu_usage = await asyncio.to_thread(proc.cpu_percent, 5)
         message = (
             "### 🟢 AI Nerd 2 is online\n"
             f"> Latency: {latency_ms} ms\n"
@@ -94,4 +105,4 @@ def setup(bot):
             f"> Bot CPU Usage: {bot_cpu_usage}%\n"
             f"> Bot RAM Usage: {bot_ram_usage:.2f} MB"
         )
-        await interaction.followup.send(message)
+        await response.edit(content=message)
