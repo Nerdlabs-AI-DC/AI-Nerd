@@ -137,7 +137,8 @@ def setup(bot):
         await interaction.followup.send(f"### 🎱 Magic 8-ball\n**{question}**\n{msg_obj.content}")
 
     @fun_group.command(name="trivia", description="Play a trivia game")
-    async def eight_ball(interaction: Interaction):
+    @app_commands.describe(genre="The genre of the trivia question")
+    async def eight_ball(interaction: Interaction, genre: str = "Any"):
         await interaction.response.defer(thinking=True)
         tools = [
             {
@@ -158,7 +159,7 @@ def setup(bot):
             }
         ]
         messages = [
-            {'role': 'system', 'content': f"You are an agent designed to generate trivia questions. Create a trivia question with one correct answer and three incorrect answers. The question should be engaging and suitable for a trivia game.\nDo not create any of the following questions:\n{recent_questions}"},
+            {'role': 'system', 'content': f"You are an agent designed to generate trivia questions. Create a trivia question with one correct answer and three incorrect answers. The question should be engaging and suitable for a trivia game.\nQuestion genre: {genre}\nDo not create any of the following questions:\n{recent_questions}"},
         ]
         if DEBUG:
             print('--- Trivia REQUEST ---')
@@ -172,7 +173,7 @@ def setup(bot):
         args = json.loads(msg_obj.function_call.arguments or '{}')
         view = discord.ui.View()
         recent_questions.append(args["question"])
-        if len(recent_questions) > 10:
+        if len(recent_questions) > 50:
             recent_questions.pop(0)
         buttons_data = [
             {"label": args["correct_answer"], "custom_id": "correct_answer", "correct": True},
@@ -185,11 +186,11 @@ def setup(bot):
         for btn in buttons_data:
             async def callback(interaction: Interaction, btn=btn):
                 if btn["correct"]:
-                    await interaction.response.send_message(f"**{btn['label']}** is correct! 🎉")
+                    await interaction.response.send_message(f"**{btn['label']}** is correct! 🎉\n-# Guessed by {interaction.user.mention}")
                     for child in view.children:
                         child.disabled = True
                 else:
-                    await interaction.response.send_message(f"**{btn['label']}** is incorrect! ❌")
+                    await interaction.response.send_message(f"**{btn['label']}** is incorrect! ❌\n-# Guessed by {interaction.user.mention}")
                     for child in view.children:
                         if child.custom_id == btn["custom_id"]:
                             child.disabled = True
@@ -198,6 +199,9 @@ def setup(bot):
             button = discord.ui.Button(label=btn["label"], style=discord.ButtonStyle.primary, custom_id=btn["custom_id"])
             button.callback = callback
             view.add_item(button)
-        await interaction.followup.send(f"### Trivia\n{args['question']}", view=view)
+        try:
+            await interaction.followup.send(f"### ❔ Trivia\nGenre: {genre}\n> {args['question']}", view=view)
+        except:
+            await interaction.followup.send("An error occurred :(")
     
     bot.tree.add_command(fun_group)
