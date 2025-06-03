@@ -1,7 +1,8 @@
 import asyncio
 import functools
 from openai import OpenAI
-from config import openai_key, MODEL
+from config import MODEL
+from credentials import openai_key
 
 _oai = OpenAI(api_key=openai_key)
 

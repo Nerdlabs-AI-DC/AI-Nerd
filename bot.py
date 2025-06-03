@@ -10,7 +10,6 @@ import config
 import random
 import datetime
 from config import (
-    token as TOKEN,
     RESPOND_TO_PINGS,
     HISTORY_SIZE,
     DEBUG,
@@ -21,6 +20,7 @@ from config import (
 )
 from memory import init_memory_files, save_memory, get_memory_detail, save_user_memory, get_user_memory_detail
 from openai_client import generate_response
+from credentials import token as TOKEN
 
 from pathlib import Path
 
