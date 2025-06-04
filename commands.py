@@ -209,5 +209,113 @@ def setup(bot):
             await interaction.followup.send(f"### ❔ Trivia\nGenre: {genre}\n> {args['question']}", view=view)
         except:
             await interaction.followup.send("An error occurred :(")
+
+    @fun_group.command(name="tictactoe", description="Play a game of Tic Tac Toe")
+    async def tictactoe(interaction: Interaction):
+        player = interaction.user
+        class TicTacToeView(discord.ui.View):
+            def __init__(self):
+                super().__init__(timeout=60)
+                self.board = [None] * 9
+                self.current_turn = "player"
+                self.message = None
+
+                for i in range(9):
+                    self.add_item(TicTacToeButton(i, self))
+
+            def check_winner(self):
+                winning_combinations = [
+                    (0, 1, 2), (3, 4, 5), (6, 7, 8),
+                    (0, 3, 6), (1, 4, 7), (2, 5, 8),
+                    (0, 4, 8), (2, 4, 6)
+                ]
+                for a, b, c in winning_combinations:
+                    if self.board[a] is not None and self.board[a] == self.board[b] == self.board[c]:
+                        return self.board[a]
+                if all(cell is not None for cell in self.board):
+                    return "tie"
+                return None
+
+            async def player_move(self, idx: int, button: discord.ui.Button, interaction: Interaction):
+                if self.current_turn != "player" or self.board[idx] is not None:
+                    return
+                self.board[idx] = "player"
+                button.label = "X"
+                button.disabled = True
+                button.style = discord.ButtonStyle.danger
+                winner = self.check_winner()
+                if winner:
+                    for child in self.children:
+                        child.disabled = True
+                    if winner == "tie":
+                        content = "### ❌⭕ Tic Tac Toe\nIt's a tie!"
+                    else:
+                        content = f"### ❌ Tic Tac Toe\n{player.display_name} wins!"
+                    return await interaction.response.edit_message(content=content, view=self)
+                self.current_turn = "ai"
+                await interaction.response.edit_message(view=self)
+                await self.ai_move(interaction, self.message)
+
+            async def ai_move(self, interaction: Interaction, message):
+                await message.edit(content="### ⭕ Tic Tac Toe\nAI Nerd is making its move...", view=self)
+                messages = [
+                    {'role': 'system', 'content': "You are an agent designed to play Tic Tac Toe. Respond with a valid move index (0-8) that corresponds to an empty cell on the board, and nothing else. The board is represented as a list of 9 elements, where None means empty, 'player' means occupied by the player, and 'ai' means occupied by the AI.\nCurrent board state: " + str(self.board)}
+                ]
+                if DEBUG:
+                    print('--- TICTACTOE REQUEST ---')
+                    print(json.dumps(messages, ensure_ascii=False, indent=2))
+                completion = await generate_response(
+                    messages,
+                    functions=None,
+                    function_call=None
+                )
+                msg_obj = completion.choices[0].message
+                if DEBUG:
+                    print('--- RESPONSE ---')
+                    print(msg_obj.content)
+                ai_choice = int(msg_obj.content)
+                self.board[ai_choice] = "ai"
+                for child in self.children:
+                    if child.custom_id == f"ttt_{ai_choice+1}":
+                        child.label = "O"
+                        child.disabled = True
+                        child.style = discord.ButtonStyle.primary
+                        break
+                winner = self.check_winner()
+                if winner:
+                    for child in self.children:
+                        child.disabled = True
+                    if winner == "tie":
+                        content = "### ❌⭕ Tic Tac Toe\nIt's a tie!"
+                    else:
+                        content = "### ⭕ Tic Tac Toe\nAI Nerd wins!"
+                    return await message.edit(content=content, view=self)
+                self.current_turn = "player"
+                await message.edit(content="### ❌ Tic Tac Toe\n**Click a button to make your move!**", view=self)
+
+        class TicTacToeButton(discord.ui.Button):
+            def __init__(self, index: int, view_ref: TicTacToeView):
+                super().__init__(label="\u200b", style=discord.ButtonStyle.secondary, custom_id=f"ttt_{index+1}", row=index//3)
+                self.index = index
+                self.view_ref = view_ref
+
+            async def callback(self, interaction: Interaction):
+                if interaction.user != player:
+                    await interaction.response.send_message("This isn't your game.", ephemeral=True)
+                    return
+                if self.view_ref.current_turn != "player":
+                    await interaction.response.send_message("Wait for your turn.", ephemeral=True)
+                    return
+                await self.view_ref.player_move(self.index, self, interaction)
+
+        view = TicTacToeView()
+        if random.random() < 0.5:
+            msg = await interaction.response.send_message("### ⭕ Tic Tac Toe\nAI Nerd is making its move...", view=view)
+            view.message = await interaction.original_response()
+            view.current_turn = "ai"
+            await view.ai_move(interaction, view.message)
+        else:
+            msg = await interaction.response.send_message("### ❌ Tic Tac Toe\n**Click a button to make your move!**", view=view)
+            view.message = await interaction.original_response()
     
     bot.tree.add_command(fun_group)
