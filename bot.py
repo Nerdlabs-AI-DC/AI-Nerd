@@ -201,7 +201,14 @@ async def on_message(message: discord.Message):
         if msg.id == message.id:
             continue
         role = 'assistant' if msg.author.id == bot.user.id else 'user'
-        content = msg.content if role == 'assistant' else f"{msg.author.display_name} ({msg.author.name}): {msg.content}"
+        if role == 'assistant':
+            content = msg.content
+        else:
+            content = []
+            content.append({'type': 'text', 'text': f"{msg.author.display_name} ({msg.author.name}): {msg.content}"})
+            for attach in msg.attachments:
+                if attach.content_type and attach.content_type.startswith('image/'):
+                    content.append({'type': 'image_url', 'image_url': {'url': attach.url}})
         history.append({'role': role, 'content': content})
         if len(history) >= HISTORY_SIZE:
             break
