@@ -205,6 +205,13 @@ async def on_message(message: discord.Message):
             content = msg.content
         else:
             content = []
+            try:
+                replied_message = await msg.channel.fetch_message(msg.reference.message_id)
+                replied_content = replied_message.content
+            except:
+                replied_content = None
+            if replied_content and (replied_message.author != bot.user or is_dm or is_allowed):
+                content.append({'type': 'text', 'text': f"Replying to {replied_message.author.display_name} ({replied_message.author.name}): {replied_content}"})
             content.append({'type': 'text', 'text': f"{msg.author.display_name} ({msg.author.name}): {msg.content}"})
             for attach in msg.attachments:
                 if attach.content_type and attach.content_type.startswith('image/'):
@@ -237,7 +244,14 @@ async def on_message(message: discord.Message):
     )
 
     user_content = []
+    try:
+        replied_message = await message.channel.fetch_message(message.reference.message_id)
+        replied_content = replied_message.content
+    except:
+        replied_content = None
     if message.content:
+        if replied_content and (replied_message.author != bot.user or is_dm or is_allowed):
+            user_content.append({'type': 'text', 'text': f"Replying to {replied_message.author.display_name} ({replied_message.author.name}): {replied_content}"})
         user_content.append({'type': 'text', 'text': f"{message.author.display_name} ({message.author.name}): {message.content}"})
     for attach in message.attachments:
         if attach.content_type and attach.content_type.startswith('image/'):
