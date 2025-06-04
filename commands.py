@@ -134,11 +134,14 @@ def setup(bot):
             function_call=None
         )
         msg_obj = completion.choices[0].message
+        if DEBUG:
+            print('--- RESPONSE ---')
+            print(msg_obj.content)
         await interaction.followup.send(f"### 🎱 Magic 8-ball\n**{question}**\n{msg_obj.content}")
 
     @fun_group.command(name="trivia", description="Play a trivia game")
     @app_commands.describe(genre="The genre of the trivia question")
-    async def eight_ball(interaction: Interaction, genre: str = "Any"):
+    async def trivia(interaction: Interaction, genre: str = "Any"):
         await interaction.response.defer(thinking=True)
         tools = [
             {
@@ -199,6 +202,9 @@ def setup(bot):
             button = discord.ui.Button(label=btn["label"], style=discord.ButtonStyle.primary, custom_id=btn["custom_id"])
             button.callback = callback
             view.add_item(button)
+        if DEBUG:
+            print('--- RESPONSE ---')
+            print(msg_obj)
         try:
             await interaction.followup.send(f"### ❔ Trivia\nGenre: {genre}\n> {args['question']}", view=view)
         except:
