@@ -12,7 +12,9 @@ from config import DEBUG
 recent_questions = []
 
 def setup(bot):
-    @bot.tree.command(name="activate", description="Make AI Nerd respond to all messages in this channel (or disable it)")
+    config_group = app_commands.Group(name="config", description="Configuration")
+
+    @config_group.command(name="activate", description="Make AI Nerd respond to all messages in this channel (or disable it)")
     async def activate(interaction: Interaction):
         if not interaction.guild:
             await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
@@ -40,7 +42,7 @@ def setup(bot):
             ephemeral=False
         )
 
-    @bot.tree.command(name="freewill-rate", description="Control how often AI Nerd 2 responds without being pinged")
+    @config_group.command(name="freewill-rate", description="Control how often AI Nerd 2 responds without being pinged")
     @app_commands.describe(rate="The frequency of random responses")
     @app_commands.choices(rate=[
         app_commands.Choice(name="Low", value="low"),
@@ -60,6 +62,8 @@ def setup(bot):
         settings[sid] = guild_settings
         save_settings(settings)
         await interaction.response.send_message(f"Free will rate set to **{rate}**.")
+
+    bot.tree.add_command(config_group)
 
     @bot.tree.command(name="delete-memories", description="Delete your memories")
     async def delete_memories(interaction: Interaction):
