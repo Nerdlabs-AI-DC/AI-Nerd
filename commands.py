@@ -263,7 +263,17 @@ def setup(bot):
             async def ai_move(self, interaction: Interaction, message):
                 await message.edit(content="### ⭕ Tic Tac Toe\nAI Nerd is making its move...", view=self)
                 messages = [
-                    {'role': 'system', 'content': "You are an agent designed to play Tic Tac Toe. Respond with a valid move index (0-8) that corresponds to an empty cell on the board, and nothing else. The board is represented as a list of 9 elements, where None means empty, 'player' means occupied by the player, and 'ai' means occupied by the AI.\nCurrent board state: " + str(self.board)}
+                    {'role': 'system', 'content': """You are an agent designed to play Tic Tac Toe. The board is a 3x3 grid represented as a flat list of 9 elements, where:
+Index 0-2 = top row
+Index 3-5 = middle row
+Index 6-8 = bottom row
+Each element can be:
+None = empty
+'player' = occupied by the player
+'ai' = occupied by you (the AI)
+Respond only with the index (0-8) of a valid empty cell where you choose to play your next move.
+Do not respond with anything else.
+Current board state: """ + str(self.board)}
                 ]
                 if DEBUG:
                     print('--- TICTACTOE REQUEST ---')
