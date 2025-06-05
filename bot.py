@@ -21,6 +21,7 @@ from config import (
 from memory import init_memory_files, save_memory, get_memory_detail, save_user_memory, get_user_memory_detail
 from openai_client import generate_response
 from credentials import token as TOKEN
+from nerdscore import increase_nerdscore
 
 from pathlib import Path
 
@@ -108,6 +109,14 @@ tools = [
                 'send_followup': {'type': 'boolean'}
             },
             'required': ['message', 'send_followup']
+        }
+    },
+    {
+        'name': 'give_nerdscore',
+        'description': 'Give the user some nerdscore.',
+        'parameters': {
+            'type': 'object',
+            'properties': {}
         }
     }
 ]
@@ -300,14 +309,14 @@ async def on_message(message: discord.Message):
         if name == 'save_memory':
             if 'user_memory' in args and args['user_memory']:
                 idx = save_user_memory(message.author.id, args['summary'], args['full_memory'])
-                messages.append({'role': 'system', 'content': f'User memory saved. Memory index for user {message.author.id}: {idx}.'})
+                messages.append({'role': 'system', 'content': f'User memory saved. Memory index for user {message.author.name}: {idx}.'})
             else:
                 idx = save_memory(args['summary'], args['full_memory'])
                 messages.append({'role': 'system', 'content': f'You just saved a new memory. Memory index: {idx}.'})
         elif name == 'get_memory_detail':
             if 'user_memory' in args and args['user_memory']:
                 detail = get_user_memory_detail(message.author.id, int(args['index']))
-                messages.append({'role': 'system', 'content': f'Recalling user memory for {message.author.id}: {detail}.'})
+                messages.append({'role': 'system', 'content': f'Recalling user memory for {message.author.name}: {detail}.'})
             else:
                 detail = get_memory_detail(int(args['index']))
                 messages.append({'role': 'system', 'content': f'You are recalling a stored memory. Memory content: {detail}.'})
@@ -327,6 +336,9 @@ async def on_message(message: discord.Message):
                 messages.append({'role': 'system', 'content': 'Something went wrong while trying to send a DM.'})
             if args['send_followup'] == False:
                 return
+        elif name == 'give_nerdscore':
+            increase_nerdscore(message.author.id, 1)
+            messages.append({'role': 'system', 'content': f'You gave {message.author.name} 1 nerdscore.'})
         completion = await generate_response(
             messages,
             functions=None,
