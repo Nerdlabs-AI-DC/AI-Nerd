@@ -9,7 +9,7 @@ import random
 import time
 from openai_client import generate_response
 from config import DEBUG
-from nerdscore import get_nerdscore, increase_nerdscore
+from nerdscore import get_nerdscore, increase_nerdscore, load_nerdscore
 
 recent_questions = []
 
@@ -44,7 +44,7 @@ def setup(bot):
             ephemeral=False
         )
 
-    @config_group.command(name="freewill-rate", description="Control how often AI Nerd 2 responds without being pinged")
+    @config_group.command(name="freewill", description="Control how often AI Nerd 2 responds without being pinged")
     @app_commands.describe(rate="The frequency of random responses")
     @app_commands.choices(rate=[
         app_commands.Choice(name="Low", value="low"),
@@ -291,7 +291,7 @@ def setup(bot):
                         content = "### ❌⭕ Tic Tac Toe\nIt's a tie!"
                     else:
                         content = f"### ❌ Tic Tac Toe\n{player.display_name} wins!\n-# You earned 10 nerdscore"
-                        increase_nerdscore(interaction.user.id, 5)
+                        increase_nerdscore(interaction.user.id, 10)
                     return await interaction.response.edit_message(content=content, view=self)
                 self.current_turn = "ai"
                 await interaction.response.edit_message(view=self)
@@ -371,13 +371,26 @@ Current board state: """ + str(self.board)}
             msg = await interaction.response.send_message("### ❌ Tic Tac Toe\n**Click a button to make your move!**", view=view)
             view.message = await interaction.original_response()
 
-    @fun_group.command(name="nerdscore", description="Show your nerdscore")
+    @fun_group.command(name="nerdscore", description="Show someone's nerdscore")
     @app_commands.describe(user="The user to check nerdscore for")
     async def nerdscore(interaction: Interaction, user: discord.User = None):
         if user is None:
             user = interaction.user
         await interaction.response.defer()
         score = get_nerdscore(user.id)
-        await interaction.followup.send(f"### {user.display_name}'s Nerdscore\n**{str(score)}**")
+        await interaction.followup.send(f"### 🤓 {user.display_name}'s Nerdscore\n**{str(score)}**")
     
+    @fun_group.command(name="nerdscore-leaderboard", description="Show leaderboard of top 10 users with highest nerdscore")
+    async def nerdscore_leaderboard(interaction: Interaction):
+        await interaction.response.defer()
+        scores = load_nerdscore()
+        sorted_scores = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+        top10 = sorted_scores[:10]
+        leaderboard_lines = []
+        for rank, (user_id, score) in enumerate(top10, start=1):
+            user = await bot.fetch_user(int(user_id))
+            leaderboard_lines.append(f"{rank}. @{user.name} - {score}")
+        leaderboard_str = "\n".join(leaderboard_lines) if leaderboard_lines else "No scores yet."
+        await interaction.followup.send(f"### 📊 Nerdscore Leaderboard\n{leaderboard_str}")
+
     bot.tree.add_command(fun_group)
