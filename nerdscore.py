@@ -23,6 +23,8 @@ def increase_nerdscore(user_id: int, amount: int = 1) -> int:
     user_key = str(user_id)
     current = scores.get(user_key, 0)
     current += amount
+    if current < 0:
+        current = 0
     scores[user_key] = current
     save_nerdscore(scores)
     return current
