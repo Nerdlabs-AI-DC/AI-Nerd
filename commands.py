@@ -263,7 +263,7 @@ def setup(bot):
                 await self.ai_move(interaction, self.message)
 
             async def ai_move(self, interaction: Interaction, message):
-                await message.edit(content="### ⭕ Tic Tac Toe\nAI Nerd is making its move...", view=self)
+                await message.edit(content="### ⭕ Tic Tac Toe\nAI Nerd 2 is making its move...", view=self)
                 messages = [
                     {'role': 'system', 'content': """You are an agent designed to play Tic Tac Toe. The board is a 3x3 grid represented as a flat list of 9 elements, where:
 Index 0-2 = top row
@@ -284,6 +284,7 @@ Current board state: """ + str(self.board)}
                     messages,
                     functions=None,
                     function_call=None,
+                    think=True
                 )
                 msg_obj = completion.choices[0].message
                 if DEBUG:
@@ -326,7 +327,7 @@ Current board state: """ + str(self.board)}
 
         view = TicTacToeView()
         if random.random() < 0.5:
-            msg = await interaction.response.send_message("### ⭕ Tic Tac Toe\nAI Nerd is making its move...", view=view)
+            msg = await interaction.response.send_message("### ⭕ Tic Tac Toe\nAI Nerd 2 is making its move...", view=view)
             view.message = await interaction.original_response()
             view.current_turn = "ai"
             await view.ai_move(interaction, view.message)

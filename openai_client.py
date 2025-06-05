@@ -1,21 +1,34 @@
 import asyncio
 import functools
 from openai import OpenAI
-from config import MODEL
+from config import MODEL, REASONING_MODEL
 from credentials import openai_key
 
 _oai = OpenAI(api_key=openai_key)
 
-async def generate_response(messages, functions=None, function_call=None):
+async def generate_response(messages, functions=None, function_call=None, think=False):
     loop = asyncio.get_event_loop()
-    completion = await loop.run_in_executor(
-        None,
-        functools.partial(
-            _oai.chat.completions.create,
-            model=MODEL,
-            messages=messages,
-            functions=functions,
-            function_call=function_call
+    if think:
+        completion = await loop.run_in_executor(
+            None,
+            functools.partial(
+                _oai.chat.completions.create,
+                model=REASONING_MODEL,
+                messages=messages,
+                functions=functions,
+                function_call=function_call,
+                reasoning_effort="low"
+            )
         )
-    )
+    else:
+        completion = await loop.run_in_executor(
+            None,
+            functools.partial(
+                _oai.chat.completions.create,
+                model=MODEL,
+                messages=messages,
+                functions=functions,
+                function_call=function_call,
+            )
+        )
     return completion
