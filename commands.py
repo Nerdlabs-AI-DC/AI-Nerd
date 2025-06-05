@@ -8,6 +8,7 @@ import asyncio
 import random
 from openai_client import generate_response
 from config import DEBUG
+from nerdscore import get_nerdscore, increase_nerdscore
 
 recent_questions = []
 
@@ -256,7 +257,8 @@ def setup(bot):
                     if winner == "tie":
                         content = "### ❌⭕ Tic Tac Toe\nIt's a tie!"
                     else:
-                        content = f"### ❌ Tic Tac Toe\n{player.display_name} wins!"
+                        content = f"### ❌ Tic Tac Toe\n{player.display_name} wins!\n-# You earned 5 nerdscore"
+                        increase_nerdscore(interaction.user.id, 5)
                     return await interaction.response.edit_message(content=content, view=self)
                 self.current_turn = "ai"
                 await interaction.response.edit_message(view=self)
@@ -334,5 +336,18 @@ Current board state: """ + str(self.board)}
         else:
             msg = await interaction.response.send_message("### ❌ Tic Tac Toe\n**Click a button to make your move!**", view=view)
             view.message = await interaction.original_response()
+
+    @fun_group.command(name="nerdscore", description="Show your nerdscore")
+    async def nerdscore(interaction: Interaction):
+        await interaction.response.defer()
+        score = get_nerdscore(interaction.user.id)
+        await interaction.followup.send("Your nerdscore: " + str(score))
+
+    @fun_group.command(name="add-nerdscore", description="Adds nerdscore points")
+    @app_commands.describe(amount="Amount of nerdscore points to add")
+    async def nerdscore(interaction: Interaction, amount: int):
+        await interaction.response.defer()
+        increase_nerdscore(interaction.user.id, amount)
+        await interaction.followup.send("Increased nerdscore by " + str(amount))
     
     bot.tree.add_command(fun_group)
