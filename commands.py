@@ -166,7 +166,7 @@ def setup(bot):
             }
         ]
         messages = [
-            {'role': 'system', 'content': f"You are an agent designed to generate trivia questions. Create a trivia question with one correct answer and three incorrect answers. The question should be engaging and suitable for a trivia game.\nQuestion genre: {genre}\nDo not create any of the following questions:\n{recent_questions}"},
+            {'role': 'system', 'content': f"You are an agent designed to generate trivia questions. Create a trivia question with one correct answer and four incorrect answers. The question should be engaging and suitable for a trivia game.\nQuestion genre: {genre}\nDo not create any of the following questions:\n{recent_questions}"},
         ]
         if DEBUG:
             print('--- Trivia REQUEST ---')
@@ -196,11 +196,16 @@ def setup(bot):
                     await interaction.response.send_message(f"**{btn['label']}** is correct! 🎉\n-# Guessed by {interaction.user.mention}")
                     for child in view.children:
                         child.disabled = True
+                        if child.custom_id == btn["custom_id"]:
+                            child.style = discord.ButtonStyle.success
+                        elif child.style == discord.ButtonStyle.primary:
+                            child.style = discord.ButtonStyle.danger
                 else:
                     await interaction.response.send_message(f"**{btn['label']}** is incorrect! ❌\n-# Guessed by {interaction.user.mention}")
                     for child in view.children:
                         if child.custom_id == btn["custom_id"]:
                             child.disabled = True
+                            child.style = discord.ButtonStyle.danger
                             break
                 await interaction.message.edit(view=view)
             button = discord.ui.Button(label=btn["label"], style=discord.ButtonStyle.primary, custom_id=btn["custom_id"])
@@ -209,10 +214,7 @@ def setup(bot):
         if DEBUG:
             print('--- RESPONSE ---')
             print(msg_obj)
-        try:
-            await interaction.followup.send(f"### ❔ Trivia\nGenre: {genre}\n> {args['question']}", view=view)
-        except:
-            await interaction.followup.send("An error occurred :(")
+        await interaction.followup.send(f"### ❔ Trivia\nGenre: {genre}\n> {args['question']}", view=view)
 
     @fun_group.command(name="tictactoe", description="Play a game of Tic Tac Toe")
     async def tictactoe(interaction: Interaction):
@@ -281,7 +283,7 @@ Current board state: """ + str(self.board)}
                 completion = await generate_response(
                     messages,
                     functions=None,
-                    function_call=None
+                    function_call=None,
                 )
                 msg_obj = completion.choices[0].message
                 if DEBUG:
