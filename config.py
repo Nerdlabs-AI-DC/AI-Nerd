@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 RESPOND_TO_PINGS = True
 HISTORY_SIZE = 10
 MODEL = "gpt-4.1-mini"
+REASONING_MODEL = "o4-mini"
 DEBUG = False # I recommend enabling this while testing
 
 # Files
