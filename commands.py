@@ -6,6 +6,7 @@ import os
 import psutil
 import asyncio
 import random
+import time
 from openai_client import generate_response
 from config import DEBUG
 from nerdscore import get_nerdscore, increase_nerdscore
@@ -146,28 +147,42 @@ def setup(bot):
 
     @fun_group.command(name="trivia", description="Play a trivia game")
     @app_commands.describe(genre="The genre of the trivia question")
-    async def trivia(interaction: Interaction, genre: str = "Any"):
+    @app_commands.describe(difficulty="The difficulty of the trivia question")
+    @app_commands.choices(difficulty=[
+        app_commands.Choice(name="Easy", value="Easy"),
+        app_commands.Choice(name="Medium", value="Medium"),
+        app_commands.Choice(name="Hard", value="Hard"),
+    ])
+    async def trivia(interaction: Interaction, genre: str = "Any", difficulty: str = 'Any'):
         await interaction.response.defer(thinking=True)
+        properties = {
+'question': {'type': 'string'},
+'correct_answer': {'type': 'string'},
+'incorrect_answer1': {'type': 'string'},
+'incorrect_answer2': {'type': 'string'},
+'incorrect_answer3': {'type': 'string'},
+'incorrect_answer4': {'type': 'string'},
+        }
+        property_names = ['question', 'correct_answer', 'incorrect_answer1', 'incorrect_answer2', 'incorrect_answer3', 'incorrect_answer4']
+        if genre == "Any":
+            properties['genre'] = {'type': 'string'}
+            property_names.append('genre')
+        if difficulty == 'Any':
+            properties['difficulty'] = {'type': 'string', 'enum': ['Easy', 'Medium', 'Hard']}
+            property_names.append('difficulty')
         tools = [
             {
                 'name': 'create_trivia',
                 'description': 'Create a trivia question',
                 'parameters': {
                     'type': 'object',
-                    'properties': {
-                        'question': {'type': 'string'},
-                        'correct_answer': {'type': 'string'},
-                        'incorrect_answer1': {'type': 'string'},
-                        'incorrect_answer2': {'type': 'string'},
-                        'incorrect_answer3': {'type': 'string'},
-                        'incorrect_answer4': {'type': 'string'}
-                    },
-                    'required': ['question', 'correct_answer', 'incorrect_answer1', 'incorrect_answer2', 'incorrect_answer3', 'incorrect_answer4']
+                    'properties': properties,
+                    'required': property_names
                 }
             }
         ]
         messages = [
-            {'role': 'system', 'content': f"You are an agent designed to generate trivia questions. Create a trivia question with one correct answer and four incorrect answers. The question should be engaging and suitable for a trivia game.\nQuestion genre: {genre}\nDo not create any of the following questions:\n{recent_questions}"},
+            {'role': 'system', 'content': f"You are an agent designed to generate trivia questions. Create a trivia question with one correct answer and four incorrect answers. The question should be engaging and suitable for a trivia game.\nQuestion genre: {genre}\nQuestion difficulty: {difficulty}\nDo not create any of the following questions:\n{recent_questions}"},
         ]
         if DEBUG:
             print('--- Trivia REQUEST ---')
@@ -191,10 +206,26 @@ def setup(bot):
             {"label": args["incorrect_answer4"], "custom_id": "option4", "correct": False},
         ]
         random.shuffle(buttons_data)
+        if 'genre' in args:
+            genre = args['genre']
+        if 'difficulty' in args:
+            difficulty = args['difficulty']
         for btn in buttons_data:
             async def callback(interaction: Interaction, btn=btn):
                 if btn["correct"]:
-                    await interaction.response.send_message(f"**{btn['label']}** is correct! 🎉\n-# Guessed by {interaction.user.mention}")
+                    answer_time = time.monotonic()
+                    if difficulty == 'Easy':
+                        multiplier = 0.5
+                    if difficulty == 'Medium':
+                        multiplier = 1.0
+                    if difficulty == 'Hard':
+                        multiplier = 1.5
+                    points = max(0, int(round((30 - (answer_time - question_time)) * multiplier, 0)))
+                    if points > 0:
+                        await interaction.response.send_message(f"**{btn['label']}** is correct! 🎉\n-# {interaction.user.mention} guessed it after {max(0, int(round((answer_time - question_time), 0)))} seconds and earned {points} nerdscore")
+                        increase_nerdscore(interaction.user.id, points)
+                    else:
+                        await interaction.response.send_message(f"**{btn['label']}** is correct! 🎉\n-# {interaction.user.mention} guessed it after {max(0, int(round((answer_time - question_time), 0)))} seconds")
                     for child in view.children:
                         child.disabled = True
                         if child.custom_id == btn["custom_id"]:
@@ -202,7 +233,8 @@ def setup(bot):
                         elif child.style == discord.ButtonStyle.primary:
                             child.style = discord.ButtonStyle.danger
                 else:
-                    await interaction.response.send_message(f"**{btn['label']}** is incorrect! ❌\n-# Guessed by {interaction.user.mention}")
+                    await interaction.response.send_message(f"**{btn['label']}** is incorrect! ❌\n-# {interaction.user.mention} lost 5 nerdscore")
+                    increase_nerdscore(interaction.user.id, -5)
                     for child in view.children:
                         if child.custom_id == btn["custom_id"]:
                             child.disabled = True
@@ -215,7 +247,8 @@ def setup(bot):
         if DEBUG:
             print('--- RESPONSE ---')
             print(msg_obj)
-        await interaction.followup.send(f"### ❔ Trivia\nGenre: {genre}\n> {args['question']}", view=view)
+        await interaction.followup.send(f"### ❔ Trivia\nGenre: {genre}\nDifficulty: {difficulty}\n> {args['question']}", view=view)
+        question_time = time.monotonic()
 
     @fun_group.command(name="tictactoe", description="Play a game of Tic Tac Toe")
     async def tictactoe(interaction: Interaction):
@@ -257,7 +290,7 @@ def setup(bot):
                     if winner == "tie":
                         content = "### ❌⭕ Tic Tac Toe\nIt's a tie!"
                     else:
-                        content = f"### ❌ Tic Tac Toe\n{player.display_name} wins!\n-# You earned 5 nerdscore"
+                        content = f"### ❌ Tic Tac Toe\n{player.display_name} wins!\n-# You earned 10 nerdscore"
                         increase_nerdscore(interaction.user.id, 5)
                     return await interaction.response.edit_message(content=content, view=self)
                 self.current_turn = "ai"
@@ -307,7 +340,7 @@ Current board state: """ + str(self.board)}
                     if winner == "tie":
                         content = "### ❌⭕ Tic Tac Toe\nIt's a tie!"
                     else:
-                        content = "### ⭕ Tic Tac Toe\nAI Nerd wins!\n-# You lost 5 nerdscore"
+                        content = "### ⭕ Tic Tac Toe\nAI Nerd 2 wins!\n-# You lost 10 nerdscore"
                         increase_nerdscore(interaction.user.id, -5)
                     return await message.edit(content=content, view=self)
                 self.current_turn = "player"
@@ -346,12 +379,5 @@ Current board state: """ + str(self.board)}
         await interaction.response.defer()
         score = get_nerdscore(user.id)
         await interaction.followup.send(f"### {user.display_name}'s Nerdscore\n**{str(score)}**")
-
-    @fun_group.command(name="add-nerdscore", description="Adds nerdscore points")
-    @app_commands.describe(amount="Amount of nerdscore points to add")
-    async def nerdscore(interaction: Interaction, amount: int):
-        await interaction.response.defer()
-        increase_nerdscore(interaction.user.id, amount)
-        await interaction.followup.send("Increased nerdscore by " + str(amount))
     
     bot.tree.add_command(fun_group)
