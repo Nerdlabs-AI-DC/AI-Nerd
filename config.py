@@ -1,4 +1,4 @@
-# version: beta 1.2
+# version: beta 1.3.0
 
 import os
 import json
