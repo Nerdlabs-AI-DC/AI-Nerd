@@ -307,7 +307,8 @@ Current board state: """ + str(self.board)}
                     if winner == "tie":
                         content = "### ❌⭕ Tic Tac Toe\nIt's a tie!"
                     else:
-                        content = "### ⭕ Tic Tac Toe\nAI Nerd wins!"
+                        content = "### ⭕ Tic Tac Toe\nAI Nerd wins!\n-# You lost 5 nerdscore"
+                        increase_nerdscore(interaction.user.id, -5)
                     return await message.edit(content=content, view=self)
                 self.current_turn = "player"
                 await message.edit(content="### ❌ Tic Tac Toe\n**Click a button to make your move!**", view=self)
@@ -338,10 +339,13 @@ Current board state: """ + str(self.board)}
             view.message = await interaction.original_response()
 
     @fun_group.command(name="nerdscore", description="Show your nerdscore")
-    async def nerdscore(interaction: Interaction):
+    @app_commands.describe(user="The user to check nerdscore for")
+    async def nerdscore(interaction: Interaction, user: discord.User = None):
+        if user is None:
+            user = interaction.user
         await interaction.response.defer()
-        score = get_nerdscore(interaction.user.id)
-        await interaction.followup.send("Your nerdscore: " + str(score))
+        score = get_nerdscore(user.id)
+        await interaction.followup.send(f"### {user.display_name}'s Nerdscore\n**{str(score)}**")
 
     @fun_group.command(name="add-nerdscore", description="Adds nerdscore points")
     @app_commands.describe(amount="Amount of nerdscore points to add")
