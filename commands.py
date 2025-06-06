@@ -187,12 +187,19 @@ def setup(bot):
         if DEBUG:
             print('--- Trivia REQUEST ---')
             print(json.dumps(messages, ensure_ascii=False, indent=2))
-        completion = await generate_response(
-            messages,
-            functions=tools,
-            function_call={"name": "create_trivia"},
-            model="gpt-4.1"
-        )
+        if genre == "Any":
+            completion = await generate_response(
+                messages,
+                functions=tools,
+                function_call={"name": "create_trivia"},
+            )
+        else:
+            completion = await generate_response(
+                messages,
+                functions=tools,
+                function_call={"name": "create_trivia"},
+                model="gpt-4.1"
+            )
         msg_obj = completion.choices[0].message
         args = json.loads(msg_obj.function_call.arguments or '{}')
         view = discord.ui.View()
