@@ -13,6 +13,33 @@ from nerdscore import get_nerdscore, increase_nerdscore, load_nerdscore
 
 recent_questions = []
 
+trivia_genres = [
+    "General Knowledge", "GK",
+    "Science", "Scientific",
+    "History", "Historical",
+    "Geography", "Geo",
+    "Literature", "Books", "Novels",
+    "Pop Culture", "Popular Culture",
+    "Movies", "Films", "Cinema",
+    "Music", "Songs", "Musical",
+    "Sports", "Athletics", "Games",
+    "Technology", "Tech", "Computers",
+    "Art", "Artwork", "Painting",
+    "Politics", "Government", "Political",
+    "Mythology", "Legends", "Myths",
+    "Food & Drink", "Cuisine", "Cooking", "Beverages",
+    "Television", "TV", "Shows", "Series",
+    "Video Games", "Gaming", "Games",
+    "Animals", "Wildlife", "Creatures",
+    "Religion", "Faith", "Beliefs",
+    "Math", "Mathematics", "Numbers",
+    "Language", "Linguistics", "Words",
+    "Any"
+]
+
+def is_genre_in_list(genre):
+    return genre.lower() in [g.lower() for g in trivia_genres]
+
 def setup(bot):
     config_group = app_commands.Group(name="config", description="Configuration")
 
@@ -187,7 +214,7 @@ def setup(bot):
         if DEBUG:
             print('--- Trivia REQUEST ---')
             print(json.dumps(messages, ensure_ascii=False, indent=2))
-        if genre == "Any":
+        if is_genre_in_list(genre):
             completion = await generate_response(
                 messages,
                 functions=tools,
