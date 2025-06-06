@@ -8,7 +8,7 @@ import asyncio
 import random
 import time
 from openai_client import generate_response
-from config import DEBUG
+from config import DEBUG, REASONING_MODEL
 from nerdscore import get_nerdscore, increase_nerdscore, load_nerdscore
 
 recent_questions = []
@@ -190,7 +190,8 @@ def setup(bot):
         completion = await generate_response(
             messages,
             functions=tools,
-            function_call={"name": "create_trivia"}
+            function_call={"name": "create_trivia"},
+            model="gpt-4.1"
         )
         msg_obj = completion.choices[0].message
         args = json.loads(msg_obj.function_call.arguments or '{}')
@@ -319,7 +320,7 @@ Current board state: """ + str(self.board)}
                     messages,
                     functions=None,
                     function_call=None,
-                    think=True
+                    model=REASONING_MODEL
                 )
                 msg_obj = completion.choices[0].message
                 if DEBUG:
