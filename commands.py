@@ -11,7 +11,20 @@ from openai_client import generate_response
 from config import DEBUG, REASONING_MODEL
 from nerdscore import get_nerdscore, increase_nerdscore, load_nerdscore
 
-recent_questions = []
+def load_recent_questions():
+    if os.path.exists('recent_questions.json'):
+        with open('recent_questions.json', 'r', encoding='utf-8') as f:
+            try:
+                data = json.load(f)
+            except ValueError:
+                data = {}
+    else:
+        data = {}
+    return data
+
+def save_recent_questions(data):
+    with open('recent_questions.json', 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
 
 trivia_genres = [
     "General Knowledge", "GK",
@@ -183,12 +196,12 @@ def setup(bot):
     async def trivia(interaction: Interaction, genre: str = "Any", difficulty: str = 'Any'):
         await interaction.response.defer(thinking=True)
         properties = {
-'question': {'type': 'string'},
-'correct_answer': {'type': 'string'},
-'incorrect_answer1': {'type': 'string'},
-'incorrect_answer2': {'type': 'string'},
-'incorrect_answer3': {'type': 'string'},
-'incorrect_answer4': {'type': 'string'},
+            'question': {'type': 'string'},
+            'correct_answer': {'type': 'string'},
+            'incorrect_answer1': {'type': 'string'},
+            'incorrect_answer2': {'type': 'string'},
+            'incorrect_answer3': {'type': 'string'},
+            'incorrect_answer4': {'type': 'string'},
         }
         property_names = ['question', 'correct_answer', 'incorrect_answer1', 'incorrect_answer2', 'incorrect_answer3', 'incorrect_answer4']
         if genre == "Any":
@@ -208,8 +221,12 @@ def setup(bot):
                 }
             }
         ]
+        user_id = str(interaction.user.id)
+        questions_data = load_recent_questions()
+        user_recent = questions_data.get(user_id, [])
+        
         messages = [
-            {'role': 'system', 'content': f"You are an agent designed to generate trivia questions. Create a trivia question with one correct answer and four incorrect answers. The question should be engaging and suitable for a trivia game.\nQuestion genre: {genre}\nQuestion difficulty: {difficulty}\nDo not create any of the following questions:\n{recent_questions}"},
+            {'role': 'system', 'content': f"You are an agent designed to generate trivia questions. Create a trivia question with one correct answer and four incorrect answers. The question should be engaging and suitable for a trivia game.\nQuestion genre: {genre}\nQuestion difficulty: {difficulty}\nDo not create any of the following questions:\n{user_recent}"},
         ]
         if DEBUG:
             print('--- Trivia REQUEST ---')
@@ -229,10 +246,14 @@ def setup(bot):
             )
         msg_obj = completion.choices[0].message
         args = json.loads(msg_obj.function_call.arguments or '{}')
+        
+        user_recent.append(args["question"])
+        if len(user_recent) > 50:
+            user_recent.pop(0)
+        questions_data[user_id] = user_recent
+        save_recent_questions(questions_data)
+        
         view = discord.ui.View()
-        recent_questions.append(args["question"])
-        if len(recent_questions) > 50:
-            recent_questions.pop(0)
         buttons_data = [
             {"label": args["correct_answer"], "custom_id": "correct_answer", "correct": True},
             {"label": args["incorrect_answer1"], "custom_id": "option1", "correct": False},
