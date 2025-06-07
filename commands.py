@@ -7,7 +7,8 @@ import psutil
 import asyncio
 import random
 import time
-from openai_client import generate_response
+import io
+from openai_client import generate_response, generate_image
 from config import DEBUG, REASONING_MODEL
 from nerdscore import get_nerdscore, increase_nerdscore, load_nerdscore
 
@@ -450,3 +451,17 @@ Current board state: """ + str(self.board)}
         await interaction.followup.send(f"### 📊 Nerdscore Leaderboard\n{leaderboard_str}")
 
     bot.tree.add_command(fun_group)
+
+    @bot.tree.command(name="gen-image", description="Generates an image")
+    @app_commands.describe(prompt="The prompt for the image")
+    async def gen_image(interaction: Interaction, prompt: str):
+        await interaction.response.defer(thinking=True)
+        filename = await generate_image(prompt)
+        if filename:
+            with open(filename, "rb") as f:
+                file_data = f.read()
+            os.remove(filename)
+            file = discord.File(io.BytesIO(file_data), filename=os.path.basename(filename))
+            await interaction.followup.send(file=file)
+        else:
+            await interaction.followup.send("Failed to generate image.")

@@ -1,5 +1,6 @@
 import asyncio
 import functools
+import base64
 from openai import OpenAI
 from config import MODEL, REASONING_MODEL, DEBUG
 from credentials import openai_key
@@ -34,3 +35,20 @@ async def generate_response(messages, functions=None, function_call=None, model=
             )
         )
     return completion
+
+async def generate_image(prompt, model="gpt-image-1", filename="image.png"):
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(
+        None,
+        functools.partial(
+            _oai.images.generate,
+            model=model,
+            prompt=prompt,
+            quality="low"
+        )
+    )
+    image_base64 = result.data[0].b64_json
+    image_bytes = base64.b64decode(image_base64)
+    with open(filename, "wb") as f:
+        f.write(image_bytes)
+    return filename
