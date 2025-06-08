@@ -476,9 +476,13 @@ Current board state: """ + str(self.board)}
             return await interaction.followup.send("You have already taken today's quiz. Try again tomorrow!")
         properties = {
             'question': {'type': 'string'},
-            'correct_answer': {'type': 'string'},
+            'correct_answer1': {'type': 'string'},
+            'correct_answer2': {'type': 'string'},
+            'correct_answer3': {'type': 'string'},
+            'correct_answer4': {'type': 'string'},
+            'correct_answer5': {'type': 'string'}
         }
-        property_names = ['question', 'correct_answer']
+        property_names = ['question', 'correct_answer1', 'correct_answer2', 'correct_answer3', 'correct_answer4', 'correct_answer5']
         tools = [
             {
                 'name': 'create_trivia',
@@ -493,7 +497,7 @@ Current board state: """ + str(self.board)}
         questions_data = load_recent_questions()
         user_recent = questions_data.get(user_id, [])
         messages = [
-            {'role': 'system', 'content': "You are an agent designed to generate trivia questions. Create a hard trivia question with one correct answer. Do not include any extra information. Do not create any of the following questions:\n" + str(user_recent)},
+            {'role': 'system', 'content': "You are an agent designed to generate trivia questions. Create a hard trivia question with one short correct answer. Provide five distinct variations of the correct answer, using different grammar or wording, but all conveying the same meaning. Do not include any extra information. Do not create any of the following questions:\n" + str(user_recent)},
         ]
         if DEBUG:
             print('--- DAILY QUIZ REQUEST ---')
@@ -506,14 +510,23 @@ Current board state: """ + str(self.board)}
         msg_obj = completion.choices[0].message
         args = json.loads(msg_obj.function_call.arguments or '{}')
         quiz_question = args["question"]
-        correct_answer = args["correct_answer"]
+        correct_answers = [
+            args['correct_answer1'],
+            args['correct_answer2'],
+            args['correct_answer3'],
+            args['correct_answer4'],
+            args['correct_answer5']
+        ]
+        if DEBUG:
+            print('--- RESPONSE ---')
+            print(msg_obj)
         await interaction.followup.send(f"### 🎯 Daily Quiz\n> {quiz_question}\nType your answer now within 30 seconds!")
         def check(m):
             return m.author == interaction.user and m.channel == interaction.channel
         first_attempt_correct = False
         try:
             reply = await interaction.client.wait_for("message", timeout=30.0, check=check)
-            if reply.content.strip().lower() == correct_answer.strip().lower():
+            if any(reply.content.strip().lower() == ans.strip().lower() for ans in correct_answers):
                 first_attempt_correct = True
             else:
                 timeout = False
@@ -534,12 +547,16 @@ Current board state: """ + str(self.board)}
                     self.retry_used = False
                 @discord.ui.button(label="Retry", style=discord.ButtonStyle.primary, custom_id="dailyquiz_retry")
                 async def retry_button(self, interaction: Interaction, button: discord.ui.Button):
-                    if self.retry_used:
-                        await interaction.response.send_message("You've already used your retry.", ephemeral=True)
+                    if get_nerdscore(interaction.user.id) < 250:
+                        await interaction.response.send_message("You need at least 250 nerdscore to retry.", ephemeral=True)
                         return
                     self.retry_used = True
                     button.disabled = True
                     increase_nerdscore(interaction.user.id, -250)
+                    await interaction.message.edit(view=self)
+                    if DEBUG:
+                        print('--- DAILY QUIZ REQUEST ---')
+                        print(json.dumps(messages, ensure_ascii=False, indent=2))
                     completion = await generate_response(
                         messages,
                         functions=tools,
@@ -548,27 +565,36 @@ Current board state: """ + str(self.board)}
                     msg_obj = completion.choices[0].message
                     args = json.loads(msg_obj.function_call.arguments or '{}')
                     quiz_question = args["question"]
-                    correct_answer = args["correct_answer"]
-                    await interaction.response.send_message(f"Retry:\n### 🎯 Daily Quiz\n> {quiz_question}\nType your answer now within 30 seconds!")
+                    correct_answers = [
+                        args['correct_answer1'],
+                        args['correct_answer2'],
+                        args['correct_answer3'],
+                        args['correct_answer4'],
+                        args['correct_answer5']
+                    ]
+                    if DEBUG:
+                        print('--- RESPONSE ---')
+                        print(msg_obj)
+                    await interaction.response.send_message(f"-# You bought a retry for 250 nerdscore\n### 🎯 Daily Quiz\n> {quiz_question}\nType your answer now within 30 seconds!")
                     try:
                         retry_reply = await interaction.client.wait_for("message", timeout=30.0, check=check)
                     except asyncio.TimeoutError:
-                        await interaction.followup.send(f"Time's up! The correct answer was: **{correct_answer}**")
+                        await interaction.followup.send(f"Time's up! The correct answer was: **{correct_answers[0]}**")
                         self.stop()
                         return
-                    if retry_reply.content.strip().lower() == correct_answer.strip().lower():
+                    if any(reply.content.strip().lower() == ans.strip().lower() for ans in correct_answers):
                         increase_nerdscore(interaction.user.id, 500)
                         await interaction.followup.send("Correct! You earned 500 nerdscore.")
                     else:
-                        await interaction.followup.send(f"Incorrect! The correct answer was: **{correct_answer}**")
+                        await interaction.followup.send(f"Incorrect! The correct answer was: **{correct_answers[0]}**")
                     records[user_id] = today
                     save_daily_quiz_records(records)
                     self.stop()
             view = RetryView()
             if timeout:
-                await interaction.followup.send(f"Time's up! The correct answer was: **{correct_answer}**\nWould you like to retry for 250 nerdscore?", view=view)
+                await interaction.followup.send(f"Time's up! The correct answer was: **{correct_answers[0]}**\nWould you like to retry for 250 nerdscore?", view=view)
             else:
-                await interaction.followup.send(f"Incorrect! The correct answer was: **{correct_answer}**\nWould you like to retry for 250 nerdscore?", view=view)
+                await interaction.followup.send(f"Incorrect! The correct answer was: **{correct_answers[0]}**\nWould you like to retry for 250 nerdscore?", view=view)
             await view.wait()
             if not view.retry_used:
                 records[user_id] = today
