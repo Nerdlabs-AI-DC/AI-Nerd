@@ -8,6 +8,7 @@ import asyncio
 import random
 import time
 import io
+import datetime
 from openai_client import generate_response, generate_image
 from config import DEBUG, REASONING_MODEL
 from nerdscore import get_nerdscore, increase_nerdscore, load_nerdscore
@@ -25,6 +26,21 @@ def load_recent_questions():
 
 def save_recent_questions(data):
     with open('recent_questions.json', 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
+
+def load_daily_quiz_records():
+    if os.path.exists('daily_quiz_records.json'):
+        with open('daily_quiz_records.json', 'r', encoding='utf-8') as f:
+            try:
+                data = json.load(f)
+            except ValueError:
+                data = {}
+    else:
+        data = {}
+    return data
+
+def save_daily_quiz_records(data):
+    with open('daily_quiz_records.json', 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
 
 trivia_genres = [
@@ -450,18 +466,112 @@ Current board state: """ + str(self.board)}
         leaderboard_str = "\n".join(leaderboard_lines) if leaderboard_lines else "No scores yet."
         await interaction.followup.send(f"### 📊 Nerdscore Leaderboard\n{leaderboard_str}")
 
-    bot.tree.add_command(fun_group)
-
-    @bot.tree.command(name="gen-image", description="Generates an image")
-    @app_commands.describe(prompt="The prompt for the image")
-    async def gen_image(interaction: Interaction, prompt: str):
-        await interaction.response.defer(thinking=True)
-        filename = await generate_image(prompt)
-        if filename:
-            with open(filename, "rb") as f:
-                file_data = f.read()
-            os.remove(filename)
-            file = discord.File(io.BytesIO(file_data), filename=os.path.basename(filename))
-            await interaction.followup.send(file=file)
+    @fun_group.command(name="dailyquiz", description="Take the daily quiz to earn 500 nerdscore (one per day)")
+    async def dailyquiz(interaction: Interaction):
+        await interaction.response.defer()
+        records = load_daily_quiz_records()
+        user_id = str(interaction.user.id)
+        today = datetime.datetime.utcnow().date().isoformat()
+        if records.get(user_id) == today:
+            return await interaction.followup.send("You have already taken today's quiz. Try again tomorrow!")
+        properties = {
+            'question': {'type': 'string'},
+            'correct_answer': {'type': 'string'},
+        }
+        property_names = ['question', 'correct_answer']
+        tools = [
+            {
+                'name': 'create_trivia',
+                'description': 'Create a trivia question',
+                'parameters': {
+                    'type': 'object',
+                    'properties': properties,
+                    'required': property_names
+                }
+            }
+        ]
+        questions_data = load_recent_questions()
+        user_recent = questions_data.get(user_id, [])
+        messages = [
+            {'role': 'system', 'content': "You are an agent designed to generate trivia questions. Create a hard trivia question with one correct answer. Do not include any extra information. Do not create any of the following questions:\n" + str(user_recent)},
+        ]
+        if DEBUG:
+            print('--- DAILY QUIZ REQUEST ---')
+            print(json.dumps(messages, ensure_ascii=False, indent=2))
+        completion = await generate_response(
+            messages,
+            functions=tools,
+            function_call={"name": "create_trivia"}
+        )
+        msg_obj = completion.choices[0].message
+        args = json.loads(msg_obj.function_call.arguments or '{}')
+        quiz_question = args["question"]
+        correct_answer = args["correct_answer"]
+        await interaction.followup.send(f"### 🎯 Daily Quiz\n> {quiz_question}\nType your answer now within 30 seconds!")
+        def check(m):
+            return m.author == interaction.user and m.channel == interaction.channel
+        first_attempt_correct = False
+        try:
+            reply = await interaction.client.wait_for("message", timeout=30.0, check=check)
+            if reply.content.strip().lower() == correct_answer.strip().lower():
+                first_attempt_correct = True
+            else:
+                timeout = False
+        except asyncio.TimeoutError:
+            timeout = True
+            pass
+        records[user_id] = today
+        save_daily_quiz_records(records)
+        if first_attempt_correct:
+            increase_nerdscore(interaction.user.id, 500)
+            await interaction.followup.send("Correct! You earned 500 nerdscore.")
+            return
         else:
-            await interaction.followup.send("Failed to generate image.")
+            # Offer the retry button
+            class RetryView(discord.ui.View):
+                def __init__(self):
+                    super().__init__(timeout=30)
+                    self.retry_used = False
+                @discord.ui.button(label="Retry", style=discord.ButtonStyle.primary, custom_id="dailyquiz_retry")
+                async def retry_button(self, interaction: Interaction, button: discord.ui.Button):
+                    if self.retry_used:
+                        await interaction.response.send_message("You've already used your retry.", ephemeral=True)
+                        return
+                    self.retry_used = True
+                    button.disabled = True
+                    increase_nerdscore(interaction.user.id, -250)
+                    completion = await generate_response(
+                        messages,
+                        functions=tools,
+                        function_call={"name": "create_trivia"}
+                    )
+                    msg_obj = completion.choices[0].message
+                    args = json.loads(msg_obj.function_call.arguments or '{}')
+                    quiz_question = args["question"]
+                    correct_answer = args["correct_answer"]
+                    await interaction.response.send_message(f"Retry:\n### 🎯 Daily Quiz\n> {quiz_question}\nType your answer now within 30 seconds!")
+                    try:
+                        retry_reply = await interaction.client.wait_for("message", timeout=30.0, check=check)
+                    except asyncio.TimeoutError:
+                        await interaction.followup.send(f"Time's up! The correct answer was: **{correct_answer}**")
+                        self.stop()
+                        return
+                    if retry_reply.content.strip().lower() == correct_answer.strip().lower():
+                        increase_nerdscore(interaction.user.id, 500)
+                        await interaction.followup.send("Correct! You earned 500 nerdscore.")
+                    else:
+                        await interaction.followup.send(f"Incorrect! The correct answer was: **{correct_answer}**")
+                    records[user_id] = today
+                    save_daily_quiz_records(records)
+                    self.stop()
+            view = RetryView()
+            if timeout:
+                await interaction.followup.send(f"Time's up! The correct answer was: **{correct_answer}**\nWould you like to retry for 250 nerdscore?", view=view)
+            else:
+                await interaction.followup.send(f"Incorrect! The correct answer was: **{correct_answer}**\nWould you like to retry for 250 nerdscore?", view=view)
+            await view.wait()
+            if not view.retry_used:
+                records[user_id] = today
+                save_daily_quiz_records(records)
+
+    bot.tree.add_command(fun_group)
