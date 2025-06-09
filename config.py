@@ -1,4 +1,4 @@
-# version: beta 1.3.1
+# version: beta 1.4.0
 
 import os
 import json
@@ -12,9 +12,13 @@ REASONING_MODEL = "o4-mini"
 DEBUG = False # I recommend enabling this while testing
 
 # Files
-SUMMARIES_FILE = "summaries.json"
-FULL_MEMORY_FILE = "memories.json"
-USER_MEMORIES_FILE = "user_memories.json"
+SUMMARIES_FILE = r"data\summaries.json"
+FULL_MEMORY_FILE = r"data\memories.json"
+USER_MEMORIES_FILE = r"data\user_memories.json"
+NERDSCORE_FILE = r"data\nerdscoredata.json"
+DAILY_QUIZ_FILE = r"data\daily_quiz_records.json"
+RECENT_QUESTIONS_FILE = r"data\recent_questions.json"
+SETTINGS_FILE = r"data\serversettings.json"
 
 # System prompt
 SYSTEM_PROMPT = f"""

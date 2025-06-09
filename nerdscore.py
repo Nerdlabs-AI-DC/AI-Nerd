@@ -1,14 +1,15 @@
 import json
 from pathlib import Path
+from config import NERDSCORE_FILE
 
-NERDSCORE_PATH = Path('nerdscoredata.json')
+nerdscore_data = Path(NERDSCORE_FILE)
 
 def load_nerdscore() -> dict:
-    if not NERDSCORE_PATH.exists():
-        NERDSCORE_PATH.write_text("{}", encoding="utf-8")
+    if not nerdscore_data.exists():
+        nerdscore_data.write_text("{}", encoding="utf-8")
         return {}
     try:
-        data = json.loads(NERDSCORE_PATH.read_text(encoding='utf-8'))
+        data = json.loads(nerdscore_data.read_text(encoding='utf-8'))
     except (json.JSONDecodeError, UnicodeDecodeError):
         data = {}
     if not isinstance(data, dict):
@@ -16,7 +17,7 @@ def load_nerdscore() -> dict:
     return data
 
 def save_nerdscore(scores: dict):
-    NERDSCORE_PATH.write_text(json.dumps(scores, indent=4), encoding='utf-8')
+    nerdscore_data.write_text(json.dumps(scores, indent=4), encoding='utf-8')
 
 def increase_nerdscore(user_id: int, amount: int = 1) -> int:
     scores = load_nerdscore()
