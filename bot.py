@@ -16,7 +16,8 @@ from config import (
     SYSTEM_PROMPT,
     SYSTEM_SHORT,
     FREEWILL,
-    JOIN_MSG
+    JOIN_MSG,
+    SETTINGS_FILE
 )
 from memory import init_memory_files, save_memory, get_memory_detail, save_user_memory, get_user_memory_detail
 from openai_client import generate_response
@@ -25,7 +26,7 @@ from nerdscore import increase_nerdscore
 
 from pathlib import Path
 
-SETTINGS_PATH = Path('serversettings.json')
+SETTINGS_PATH = Path(SETTINGS_FILE)
 
 def load_settings() -> dict:
     if not SETTINGS_PATH.exists():
@@ -230,12 +231,12 @@ async def on_message(message: discord.Message):
             break
     history.reverse()
 
-    with open('summaries.json', 'r', encoding='utf-8') as f:
+    with open(config.SUMMARIES_FILE, 'r', encoding='utf-8') as f:  # updated with path from config.py
         summaries = json.load(f)
     summary_list = "\n".join(f"{i+1}. {s}" for i, s in enumerate(summaries))
-
+    
     user_key = str(message.author.id)
-    with open('user_memories.json', 'r', encoding='utf-8') as f:
+    with open(config.USER_MEMORIES_FILE, 'r', encoding='utf-8') as f:  # updated with path from config.py
         data = json.load(f)
         if user_key in data:
             user_summaries = "\n".join(f"{i+1}. {s}" for i, s in enumerate(data[user_key]["summaries"]))

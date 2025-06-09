@@ -10,12 +10,12 @@ import time
 import io
 import datetime
 from openai_client import generate_response, generate_image
-from config import DEBUG, REASONING_MODEL
+from config import DEBUG, REASONING_MODEL, DAILY_QUIZ_FILE, RECENT_QUESTIONS_FILE
 from nerdscore import get_nerdscore, increase_nerdscore, load_nerdscore
 
 def load_recent_questions():
-    if os.path.exists('recent_questions.json'):
-        with open('recent_questions.json', 'r', encoding='utf-8') as f:
+    if os.path.exists(RECENT_QUESTIONS_FILE):
+        with open(RECENT_QUESTIONS_FILE, 'r', encoding='utf-8') as f:
             try:
                 data = json.load(f)
             except ValueError:
@@ -25,12 +25,12 @@ def load_recent_questions():
     return data
 
 def save_recent_questions(data):
-    with open('recent_questions.json', 'w', encoding='utf-8') as f:
+    with open(RECENT_QUESTIONS_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
 
 def load_daily_quiz_records():
-    if os.path.exists('daily_quiz_records.json'):
-        with open('daily_quiz_records.json', 'r', encoding='utf-8') as f:
+    if os.path.exists(DAILY_QUIZ_FILE):
+        with open(DAILY_QUIZ_FILE, 'r', encoding='utf-8') as f:
             try:
                 data = json.load(f)
             except ValueError:
@@ -40,7 +40,7 @@ def load_daily_quiz_records():
     return data
 
 def save_daily_quiz_records(data):
-    with open('daily_quiz_records.json', 'w', encoding='utf-8') as f:
+    with open(DAILY_QUIZ_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
 
 trivia_genres = [
