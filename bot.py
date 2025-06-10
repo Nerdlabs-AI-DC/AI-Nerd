@@ -19,7 +19,7 @@ from config import (
     JOIN_MSG,
     SETTINGS_FILE
 )
-from memory import init_memory_files, save_memory, get_memory_detail, save_user_memory, get_user_memory_detail
+from memory import init_memory_files, save_memory, get_memory_detail, save_user_memory, get_user_memory_detail, save_context, get_channel_by_user
 from openai_client import generate_response
 from credentials import token as TOKEN
 from nerdscore import increase_nerdscore
@@ -206,8 +206,24 @@ async def on_message(message: discord.Message):
     dq.append(now)
 
     # System prompt building
+    if get_channel_by_user(user_id) == message.channel.id:
+        history_channel = message.channel
+        moved = False
+    else:
+        try:
+            channel_id = get_channel_by_user(user_id)
+            history_channel = bot.get_channel(int(channel_id)) if channel_id else None
+        except Exception:
+            history_channel = None
+
+        if history_channel is None:
+            history_channel = message.channel
+            moved = False
+        else:
+            moved = True
+    save_context(user_id, message.channel.id)
     history = []
-    async for msg in message.channel.history(limit=HISTORY_SIZE+1, oldest_first=False):
+    async for msg in history_channel.history(limit=HISTORY_SIZE+1, oldest_first=False):
         if msg.id == message.id:
             continue
         role = 'assistant' if msg.author.id == bot.user.id else 'user'
@@ -230,6 +246,8 @@ async def on_message(message: discord.Message):
         if len(history) >= HISTORY_SIZE:
             break
     history.reverse()
+    if moved:
+        history.append({'role': 'system', 'content': 'The conversation has moved to a different channel.'})
 
     with open(config.SUMMARIES_FILE, 'r', encoding='utf-8') as f:  # updated with path from config.py
         summaries = json.load(f)

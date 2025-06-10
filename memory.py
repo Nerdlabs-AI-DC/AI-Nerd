@@ -1,6 +1,6 @@
 import os
 import json
-from config import SUMMARIES_FILE, FULL_MEMORY_FILE, USER_MEMORIES_FILE
+from config import SUMMARIES_FILE, FULL_MEMORY_FILE, USER_MEMORIES_FILE, CONTEXT_FILE
 
 
 def init_memory_files():
@@ -63,3 +63,32 @@ def get_user_memory_detail(user_id: str, index: int) -> str:
         if 1 <= index <= len(memories):
             return memories[index - 1]
     return ""
+
+
+# New functions for context mapping:
+def save_context(user_id: str, channel_id: str) -> None:
+    try:
+        with open(CONTEXT_FILE, 'r+', encoding='utf-8') as f:
+            try:
+                context = json.load(f)
+                if not isinstance(context, dict):
+                    context = {}
+            except json.JSONDecodeError:
+                context = {}
+            context[str(user_id)] = channel_id
+            f.seek(0)
+            json.dump(context, f, indent=2, ensure_ascii=False)
+            f.truncate()
+    except FileNotFoundError:
+        with open(CONTEXT_FILE, 'w', encoding='utf-8') as f:
+            context = {str(user_id): channel_id}
+            json.dump(context, f, indent=2, ensure_ascii=False)
+
+
+def get_channel_by_user(user_id: str) -> str:
+    try:
+        with open(CONTEXT_FILE, 'r', encoding='utf-8') as f:
+            context = json.load(f)
+            return context.get(str(user_id), "")
+    except (FileNotFoundError, json.JSONDecodeError):
+        return ""
