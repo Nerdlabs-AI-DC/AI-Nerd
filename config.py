@@ -19,6 +19,7 @@ NERDSCORE_FILE = r"data\nerdscoredata.json"
 DAILY_QUIZ_FILE = r"data\daily_quiz_records.json"
 RECENT_QUESTIONS_FILE = r"data\recent_questions.json"
 SETTINGS_FILE = r"data\serversettings.json"
+CONTEXT_FILE = r"data\context_memory.json"
 
 # System prompt
 SYSTEM_PROMPT = f"""
