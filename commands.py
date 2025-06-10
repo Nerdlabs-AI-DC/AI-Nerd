@@ -258,8 +258,7 @@ def setup(bot):
             completion = await generate_response(
                 messages,
                 functions=tools,
-                function_call={"name": "create_trivia"},
-                model="gpt-4.1"
+                function_call={"name": "create_trivia"}
             )
         msg_obj = completion.choices[0].message
         args = json.loads(msg_obj.function_call.arguments or '{}')
