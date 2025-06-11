@@ -19,6 +19,7 @@ NERDSCORE_FILE = DATA_DIR / "nerdscoredata.json"
 DAILY_QUIZ_FILE = DATA_DIR / "daily_quiz_records.json"
 RECENT_QUESTIONS_FILE = DATA_DIR / "recent_questions.json"
 SETTINGS_FILE = DATA_DIR / "serversettings.json"
+CONTEXT_FILE = DATA_DIR / "context_memory.json"
 
 
 # System prompt

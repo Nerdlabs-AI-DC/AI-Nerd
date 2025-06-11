@@ -206,13 +206,13 @@ async def on_message(message: discord.Message):
     dq.append(now)
 
     # System prompt building
-    if get_channel_by_user(user_id) == message.channel.id:
+    channel_id, timestamp = get_channel_by_user(user_id)
+    if channel_id == message.channel.id or time.time() - timestamp > 300 or freewill:
         history_channel = message.channel
         moved = False
     else:
         try:
-            channel_id = get_channel_by_user(user_id)
-            history_channel = bot.get_channel(int(channel_id)) if channel_id else None
+            history_channel = await bot.fetch_channel(int(channel_id)) if channel_id else None
         except Exception:
             history_channel = None
 
@@ -249,12 +249,12 @@ async def on_message(message: discord.Message):
     if moved:
         history.append({'role': 'system', 'content': 'The conversation has moved to a different channel.'})
 
-    with open(config.SUMMARIES_FILE, 'r', encoding='utf-8') as f:  # updated with path from config.py
+    with open(config.SUMMARIES_FILE, 'r', encoding='utf-8') as f:
         summaries = json.load(f)
     summary_list = "\n".join(f"{i+1}. {s}" for i, s in enumerate(summaries))
     
     user_key = str(message.author.id)
-    with open(config.USER_MEMORIES_FILE, 'r', encoding='utf-8') as f:  # updated with path from config.py
+    with open(config.USER_MEMORIES_FILE, 'r', encoding='utf-8') as f:
         data = json.load(f)
         if user_key in data:
             user_summaries = "\n".join(f"{i+1}. {s}" for i, s in enumerate(data[user_key]["summaries"]))
