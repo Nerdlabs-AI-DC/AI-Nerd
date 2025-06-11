@@ -242,23 +242,34 @@ def setup(bot):
         questions_data = load_recent_questions()
         user_recent = questions_data.get(user_id, [])
         
-        messages = [
-            {'role': 'system', 'content': f"You are an agent designed to generate trivia questions. Create a trivia question with one correct answer and four incorrect answers. The question should be engaging and suitable for a trivia game.\nQuestion genre: {genre}\nQuestion difficulty: {difficulty}\nDo not create any of the following questions:\n{user_recent}"},
-        ]
-        if DEBUG:
-            print('--- Trivia REQUEST ---')
-            print(json.dumps(messages, ensure_ascii=False, indent=2))
+        messages = [{'role': 'system', 'content': f"You are an agent designed to generate trivia questions. Create a trivia question with one correct answer and four incorrect answers. The question should be engaging and suitable for a trivia game.\nQuestion genre: {genre}\nQuestion difficulty: {difficulty}\nDo not create any of the following questions:\n{user_recent}"}]
+        search_messages = [{'role': 'system', 'content': "You are an agent tasked with gathering interesting and accurate facts that can be used to create trivia questions. Find information about the genre: " + genre}]
         if is_genre_in_list(genre):
-            completion = await generate_response(
-                messages,
-                functions=tools,
-                function_call={"name": "create_trivia"},
-            )
-        else:
+            if DEBUG:
+                print('--- Trivia REQUEST ---')
+                print(json.dumps(messages, ensure_ascii=False, indent=2))
             completion = await generate_response(
                 messages,
                 functions=tools,
                 function_call={"name": "create_trivia"}
+            )
+        else:
+            if DEBUG:
+                print('--- Search REQUEST ---')
+                print(json.dumps(search_messages, ensure_ascii=False, indent=2))
+            completion = await generate_response(
+                search_messages,
+                model="gpt-4o-mini-search-preview"
+            )
+            msg_obj = completion.choices[0].message
+            messages.append({'role': 'system', 'content': f"Use the following information to create a trivia question: {msg_obj.content}"})
+            if DEBUG:
+                print('--- Trivia REQUEST ---')
+                print(json.dumps(messages, ensure_ascii=False, indent=2))
+            completion = await generate_response(
+                messages,
+                functions=tools,
+                function_call={"name": "create_trivia"},
             )
         msg_obj = completion.choices[0].message
         args = json.loads(msg_obj.function_call.arguments or '{}')
