@@ -1,5 +1,6 @@
 import os
 import json
+import time
 from config import SUMMARIES_FILE, FULL_MEMORY_FILE, USER_MEMORIES_FILE, CONTEXT_FILE
 
 
@@ -65,8 +66,8 @@ def get_user_memory_detail(user_id: str, index: int) -> str:
     return ""
 
 
-# New functions for context mapping:
 def save_context(user_id: str, channel_id: str) -> None:
+    current_time = time.time()
     try:
         with open(CONTEXT_FILE, 'r+', encoding='utf-8') as f:
             try:
@@ -75,20 +76,23 @@ def save_context(user_id: str, channel_id: str) -> None:
                     context = {}
             except json.JSONDecodeError:
                 context = {}
-            context[str(user_id)] = channel_id
+            context[str(user_id)] = {"channel_id": channel_id, "timestamp": current_time}
             f.seek(0)
             json.dump(context, f, indent=2, ensure_ascii=False)
             f.truncate()
     except FileNotFoundError:
         with open(CONTEXT_FILE, 'w', encoding='utf-8') as f:
-            context = {str(user_id): channel_id}
+            context = {str(user_id): {"channel_id": channel_id, "timestamp": current_time}}
             json.dump(context, f, indent=2, ensure_ascii=False)
 
 
-def get_channel_by_user(user_id: str) -> str:
+def get_channel_by_user(user_id: str):
     try:
         with open(CONTEXT_FILE, 'r', encoding='utf-8') as f:
             context = json.load(f)
-            return context.get(str(user_id), "")
+            data = context.get(str(user_id), {})
+            if isinstance(data, dict):
+                return data.get("channel_id", ""), data.get("timestamp", 0)
+            return "", 0
     except (FileNotFoundError, json.JSONDecodeError):
-        return ""
+        return "", 0
