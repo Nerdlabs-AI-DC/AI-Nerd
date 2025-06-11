@@ -1,8 +1,7 @@
-# version: beta 1.4.0
+# version: beta 1.4.1
 
-import os
-import json
 from datetime import datetime, timezone
+from pathlib import Path
 
 # Main settings
 RESPOND_TO_PINGS = True
@@ -12,14 +11,15 @@ REASONING_MODEL = "o4-mini"
 DEBUG = False # I recommend enabling this while testing
 
 # Files
-SUMMARIES_FILE = r"data\summaries.json"
-FULL_MEMORY_FILE = r"data\memories.json"
-USER_MEMORIES_FILE = r"data\user_memories.json"
-NERDSCORE_FILE = r"data\nerdscoredata.json"
-DAILY_QUIZ_FILE = r"data\daily_quiz_records.json"
-RECENT_QUESTIONS_FILE = r"data\recent_questions.json"
-SETTINGS_FILE = r"data\serversettings.json"
-CONTEXT_FILE = r"data\context_memory.json"
+DATA_DIR = Path("data")
+SUMMARIES_FILE = DATA_DIR / "summaries.json"
+FULL_MEMORY_FILE = DATA_DIR / "memories.json"
+USER_MEMORIES_FILE = DATA_DIR / "user_memories.json"
+NERDSCORE_FILE = DATA_DIR / "nerdscoredata.json"
+DAILY_QUIZ_FILE = DATA_DIR / "daily_quiz_records.json"
+RECENT_QUESTIONS_FILE = DATA_DIR / "recent_questions.json"
+SETTINGS_FILE = DATA_DIR / "serversettings.json"
+
 
 # System prompt
 SYSTEM_PROMPT = f"""
