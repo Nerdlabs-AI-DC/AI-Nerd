@@ -20,7 +20,8 @@ async def generate_response(messages, functions=None, function_call=None, model=
                 messages=messages,
                 functions=functions,
                 function_call=function_call,
-                reasoning_effort="low"
+                reasoning_effort="low",
+                max_completion_tokens=2000
             )
         )
     else:
@@ -32,6 +33,7 @@ async def generate_response(messages, functions=None, function_call=None, model=
                 messages=messages,
                 functions=functions,
                 function_call=function_call,
+                max_completion_tokens=2000
             )
         )
     return completion

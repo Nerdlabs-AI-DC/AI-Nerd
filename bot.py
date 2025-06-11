@@ -9,6 +9,7 @@ from discord import app_commands
 import config
 import random
 import datetime
+import re
 from config import (
     RESPOND_TO_PINGS,
     HISTORY_SIZE,
@@ -226,10 +227,12 @@ async def on_message(message: discord.Message):
     async for msg in history_channel.history(limit=HISTORY_SIZE+1, oldest_first=False):
         if msg.id == message.id:
             continue
-        role = 'assistant' if msg.author.id == bot.user.id else 'user'
-        if role == 'assistant':
+        if msg.author.id == bot.user.id:
+            role = 'assistant'
             content = msg.content
         else:
+            role = 'user'
+        if role != 'assistant':
             content = []
             try:
                 replied_message = await msg.channel.fetch_message(msg.reference.message_id)
@@ -238,11 +241,11 @@ async def on_message(message: discord.Message):
                 replied_content = None
             if replied_content and (replied_message.author != bot.user or is_dm or is_allowed):
                 content.append({'type': 'text', 'text': f"Replying to {replied_message.author.display_name} ({replied_message.author.name}): {replied_content}"})
-            content.append({'type': 'text', 'text': f"{msg.author.display_name} ({msg.author.name}): {msg.content}"})
+            content.append({'type': 'text', 'text': msg.content})
             for attach in msg.attachments:
                 if attach.content_type and attach.content_type.startswith('image/'):
                     content.append({'type': 'image_url', 'image_url': {'url': attach.url}})
-        history.append({'role': role, 'content': content})
+        history.append({'role': role, 'content': content, 'name': re.sub(r'[\s<|\\/>]', '_', msg.author.name)})
         if len(history) >= HISTORY_SIZE:
             break
     history.reverse()
@@ -280,7 +283,7 @@ async def on_message(message: discord.Message):
     if message.content:
         if replied_content and (replied_message.author != bot.user or is_dm or is_allowed):
             user_content.append({'type': 'text', 'text': f"Replying to {replied_message.author.display_name} ({replied_message.author.name}): {replied_content}"})
-        user_content.append({'type': 'text', 'text': f"{message.author.display_name} ({message.author.name}): {message.content}"})
+        user_content.append({'type': 'text', 'text': message.content})
     for attach in message.attachments:
         if attach.content_type and attach.content_type.startswith('image/'):
             user_content.append({'type': 'image_url', 'image_url': {'url': attach.url}})
@@ -289,14 +292,14 @@ async def on_message(message: discord.Message):
         messages = [
         {'role': 'system', 'content': SYSTEM_SHORT},
         *history,
-        {'role': 'user', 'content': user_content},
+        {'role': 'user', 'content': user_content, 'name': re.sub(r'[\s<|\\/>]', '_', message.author.name)},
         {'role': 'system', 'content': freewill}
         ]
     else:
         messages = [
         {'role': 'system', 'content': system_content},
         *history,
-        {'role': 'user', 'content': user_content}
+        {'role': 'user', 'content': user_content, 'name': re.sub(r'[\s<|\\/>]', '_', message.author.name)} # Added regex shit so openai doesn't yell at me
         ]
 
     # Api request
