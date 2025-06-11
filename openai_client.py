@@ -24,6 +24,15 @@ async def generate_response(messages, functions=None, function_call=None, model=
                 max_completion_tokens=2000
             )
         )
+    elif model == "gpt-4o-mini-search-preview":
+        completion = await loop.run_in_executor(
+            None,
+            functools.partial(
+                _oai.chat.completions.create,
+                model=model,
+                messages=messages
+            )
+        )
     else:
         completion = await loop.run_in_executor(
             None,
