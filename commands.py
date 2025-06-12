@@ -167,7 +167,8 @@ def setup(bot):
         completion = await generate_response(
             messages,
             functions=None,
-            function_call=None
+            function_call=None,
+            user_id=interaction.user.id
         )
         msg_obj = completion.choices[0].message
         if DEBUG:
@@ -223,7 +224,8 @@ def setup(bot):
         completion = await generate_response(
             messages,
             functions=tools,
-            function_call={"name": "create_trivia"}
+            function_call={"name": "create_trivia"},
+            user_id=interaction.user.id
         )
         msg_obj = completion.choices[0].message
         args = json.loads(msg_obj.function_call.arguments or '{}')
@@ -469,7 +471,8 @@ Current board state: """ + str(self.board)}
         completion = await generate_response(
             messages,
             functions=tools,
-            function_call={"name": "create_trivia"}
+            function_call={"name": "create_trivia"},
+            user_id=interaction.user.id
         )
         msg_obj = completion.choices[0].message
         args = json.loads(msg_obj.function_call.arguments or '{}')
@@ -524,7 +527,8 @@ Current board state: """ + str(self.board)}
                     completion = await generate_response(
                         messages,
                         functions=tools,
-                        function_call={"name": "create_trivia"}
+                        function_call={"name": "create_trivia"},
+                        user_id=interaction.user.id
                     )
                     msg_obj = completion.choices[0].message
                     args = json.loads(msg_obj.function_call.arguments or '{}')

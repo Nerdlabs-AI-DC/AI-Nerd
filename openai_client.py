@@ -10,7 +10,7 @@ _oai = OpenAI(api_key=openai_key)
 async def generate_response(messages, functions=None, function_call=None, model=MODEL, user_id=None):
     loop = asyncio.get_event_loop()
     if DEBUG:
-        print(f"Generating response with model: {model}")
+        print(f"Generating response with model: {model} and user id: {user_id}")
     if model == REASONING_MODEL:
         completion = await loop.run_in_executor(
             None,
@@ -21,17 +21,20 @@ async def generate_response(messages, functions=None, function_call=None, model=
                 functions=functions,
                 function_call=function_call,
                 reasoning_effort="low",
-                max_completion_tokens=2000
+                max_completion_tokens=2000,
+                user=str(user_id)
             )
         )
-    elif user_id:
+    elif not user_id:
         completion = await loop.run_in_executor(
             None,
             functools.partial(
                 _oai.chat.completions.create,
                 model=model,
                 messages=messages,
-                user=str(user_id)
+                functions=functions,
+                function_call=function_call,
+                max_completion_tokens=2000
             )
         )
     else:
@@ -43,7 +46,8 @@ async def generate_response(messages, functions=None, function_call=None, model=
                 messages=messages,
                 functions=functions,
                 function_call=function_call,
-                max_completion_tokens=2000
+                max_completion_tokens=2000,
+                user=str(user_id)
             )
         )
     return completion
