@@ -7,7 +7,7 @@ from credentials import openai_key
 
 _oai = OpenAI(api_key=openai_key)
 
-async def generate_response(messages, functions=None, function_call=None, model=MODEL):
+async def generate_response(messages, functions=None, function_call=None, model=MODEL, user_id=None):
     loop = asyncio.get_event_loop()
     if DEBUG:
         print(f"Generating response with model: {model}")
@@ -24,13 +24,14 @@ async def generate_response(messages, functions=None, function_call=None, model=
                 max_completion_tokens=2000
             )
         )
-    elif model == "gpt-4o-mini-search-preview":
+    elif user_id:
         completion = await loop.run_in_executor(
             None,
             functools.partial(
                 _oai.chat.completions.create,
                 model=model,
-                messages=messages
+                messages=messages,
+                user=str(user_id)
             )
         )
     else:
