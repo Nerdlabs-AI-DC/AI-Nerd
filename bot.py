@@ -311,14 +311,16 @@ async def on_message(message: discord.Message):
         completion = await generate_response(
             messages,
             functions=tools,
-            function_call='auto'
+            function_call='auto',
+            user_id=message.author.id
         )
     else:
         async with message.channel.typing():
             completion = await generate_response(
                 messages,
                 functions=tools,
-                function_call='auto'
+                function_call='auto',
+                user_id=message.author.id
             )
     msg_obj = completion.choices[0].message
 
@@ -364,7 +366,8 @@ async def on_message(message: discord.Message):
         completion = await generate_response(
             messages,
             functions=None,
-            function_call=None
+            function_call=None,
+            user_id=message.author.id
         )
         msg_obj = completion.choices[0].message
 
