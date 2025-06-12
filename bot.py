@@ -252,13 +252,20 @@ async def on_message(message: discord.Message):
     if moved:
         history.append({'role': 'system', 'content': 'The conversation has moved to a different channel.'})
 
-    with open(config.SUMMARIES_FILE, 'r', encoding='utf-8') as f:
-        summaries = json.load(f)
+    with open(config.FULL_MEMORY_FILE, 'r', encoding='utf-8') as f:
+        try:
+            full_data = json.load(f)
+        except json.JSONDecodeError:
+            full_data = {"summaries": []}
+        summaries = full_data.get("summaries", [])
     summary_list = "\n".join(f"{i+1}. {s}" for i, s in enumerate(summaries))
     
     user_key = str(message.author.id)
     with open(config.USER_MEMORIES_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
+        try:
+            data = json.load(f)
+        except json.JSONDecodeError:
+            data = {}
         if user_key in data:
             user_summaries = "\n".join(f"{i+1}. {s}" for i, s in enumerate(data[user_key]["summaries"]))
         else:

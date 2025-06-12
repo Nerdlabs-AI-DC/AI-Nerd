@@ -1,4 +1,4 @@
-# version: beta 1.4.1
+# AI Nerd 2 version: 1.0.0
 
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,7 +12,6 @@ DEBUG = False # I recommend enabling this while testing
 
 # Files
 DATA_DIR = Path("data")
-SUMMARIES_FILE = DATA_DIR / "summaries.json"
 FULL_MEMORY_FILE = DATA_DIR / "memories.json"
 USER_MEMORIES_FILE = DATA_DIR / "user_memories.json"
 NERDSCORE_FILE = DATA_DIR / "nerdscoredata.json"

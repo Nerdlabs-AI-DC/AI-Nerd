@@ -1,38 +1,37 @@
 import os
 import json
 import time
-from config import SUMMARIES_FILE, FULL_MEMORY_FILE, USER_MEMORIES_FILE, CONTEXT_FILE
+from config import FULL_MEMORY_FILE, USER_MEMORIES_FILE, CONTEXT_FILE
 
+MEMORIES_FILE = FULL_MEMORY_FILE
 
 def init_memory_files():
-    for path in (SUMMARIES_FILE, FULL_MEMORY_FILE):
-        if not os.path.isfile(path):
-            with open(path, 'w', encoding='utf-8') as f:
-                json.dump([], f)
+    if not os.path.isfile(MEMORIES_FILE):
+        with open(MEMORIES_FILE, 'w', encoding='utf-8') as f:
+            json.dump({"summaries": [], "memories": []}, f)
     if not os.path.isfile(USER_MEMORIES_FILE):
         with open(USER_MEMORIES_FILE, 'w', encoding='utf-8') as f:
             json.dump({}, f)
 
 
 def save_memory(summary: str, full_memory: str) -> int:
-    with open(SUMMARIES_FILE, 'r+', encoding='utf-8') as sf, \
-         open(FULL_MEMORY_FILE, 'r+', encoding='utf-8') as mf:
-        summaries = json.load(sf)
-        memories = json.load(mf)
-        summaries.append(summary)
-        memories.append(full_memory)
-        sf.seek(0)
-        json.dump(summaries, sf, indent=2, ensure_ascii=False)
-        sf.truncate()
-        mf.seek(0)
-        json.dump(memories, mf, indent=2, ensure_ascii=False)
-        mf.truncate()
-    return len(summaries)
+    with open(MEMORIES_FILE, 'r+', encoding='utf-8') as f:
+        try:
+            data = json.load(f)
+        except json.JSONDecodeError:
+            data = {"summaries": [], "memories": []}
+        data["summaries"].append(summary)
+        data["memories"].append(full_memory)
+        f.seek(0)
+        json.dump(data, f, indent=2, ensure_ascii=False)
+        f.truncate()
+    return len(data["summaries"])
 
 
 def get_memory_detail(index: int) -> str:
-    with open(FULL_MEMORY_FILE, 'r', encoding='utf-8') as f:
-        memories = json.load(f)
+    with open(MEMORIES_FILE, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    memories = data.get("memories", [])
     if 1 <= index <= len(memories):
         return memories[index - 1]
     return ""
