@@ -10,7 +10,6 @@ import config
 import random
 import datetime
 import re
-from prometheus_client import start_http_server, Counter, Gauge
 from config import (
     RESPOND_TO_PINGS,
     HISTORY_SIZE,
@@ -26,6 +25,7 @@ from memory import init_memory_files, save_memory, get_memory_detail, save_user_
 from openai_client import generate_response
 from credentials import token as TOKEN
 from nerdscore import increase_nerdscore
+from metrics import messages_sent, users, servers
 
 from pathlib import Path
 
@@ -56,15 +56,11 @@ user_requests = defaultdict(lambda: deque())
 
 intents = discord.Intents.default()
 intents.message_content = True
+intents.members = True
 bot = commands.Bot(command_prefix='/', intents=intents)
 
 import commands
 commands.setup(bot)
-
-start_http_server(8000)
-messages_sent = Counter('messages_sent', 'Amount of messages sent by the bot')
-users = Counter('users', 'Amount of users who talked to the bot')
-servers = Gauge('servers', 'Amount of servers the bot is in')
 
 def update_metrics(user_id: int) -> None:
     try:
@@ -147,7 +143,7 @@ async def on_ready():
     await bot.tree.sync()
     print(f"Ready as {bot.user}")
 
-async def send_message(message, system_msg=None, force_response=False):
+async def send_message(message, system_msg=None, force_response=False, functions=True):
     # Condition checking & free will
     if message.author.id == bot.user.id and force_response == False:
         return
@@ -330,6 +326,11 @@ async def send_message(message, system_msg=None, force_response=False):
         {'role': 'user', 'content': user_content, 'name': re.sub(r'[\s<|\\/>]', '_', message.author.name)} # Added regex shit so openai doesn't yell at me
         ]
 
+    functioncall = 'auto'
+    if functions == False:
+        tools = None
+        functioncall = None
+
     # Api request
     if DEBUG:
         print('--- REQUEST ---')
@@ -339,7 +340,7 @@ async def send_message(message, system_msg=None, force_response=False):
         completion = await generate_response(
             messages,
             functions=tools,
-            function_call='auto',
+            function_call=functioncall,
             user_id=message.author.id
         )
     else:
@@ -347,7 +348,7 @@ async def send_message(message, system_msg=None, force_response=False):
             completion = await generate_response(
                 messages,
                 functions=tools,
-                function_call='auto',
+                function_call=functioncall,
                 user_id=message.author.id
             )
     msg_obj = completion.choices[0].message
@@ -420,8 +421,27 @@ async def on_guild_join(guild):
         last_message = None
         async for msg in guild.system_channel.history(limit=1):
             last_message = msg
-        print(f"Joined server: {guild.name}. last message: {last_message.content}")
-        await send_message(last_message, system_msg=f"You've just joined {guild.name}. Say hello to everyone!", force_response=True)
+        await send_message(last_message, system_msg=f"You've just joined {guild.name}. Say hello to everyone!", force_response=True, functions=False)
+
+@bot.event
+async def on_member_join(member):
+    print("Detected new member join")
+    guild = member.guild
+    settings = load_settings()
+    guild_settings = settings.get(str(guild.id), {})
+    welcome_setting = guild_settings.get("welcome_msg")
+    if welcome_setting:
+        channel = await bot.fetch_channel(welcome_setting)
+        last_message = None
+        async for msg in channel.history(limit=1):
+            last_message = msg
+        print("Sending welcome message")
+        await send_message(
+            last_message,
+            system_msg=f"A new member, {member.display_name}, has joined the server. Please send a welcome message. Make sure to mention them at least once using {member.mention}",
+            force_response=True,
+            functions=False
+        )
 
 # Runs the bot
 if __name__ == '__main__':
