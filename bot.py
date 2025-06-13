@@ -10,6 +10,7 @@ import config
 import random
 import datetime
 import re
+from prometheus_client import start_http_server, Counter, Gauge
 from config import (
     RESPOND_TO_PINGS,
     HISTORY_SIZE,
@@ -18,7 +19,8 @@ from config import (
     SYSTEM_SHORT,
     FREEWILL,
     JOIN_MSG,
-    SETTINGS_FILE
+    SETTINGS_FILE,
+    METRICS_FILE
 )
 from memory import init_memory_files, save_memory, get_memory_detail, save_user_memory, get_user_memory_detail, save_context, get_channel_by_user
 from openai_client import generate_response
@@ -47,7 +49,6 @@ def load_settings() -> dict:
 def save_settings(settings: dict):
     SETTINGS_PATH.write_text(json.dumps(settings, indent=4), encoding='utf-8')
 
-
 # Rate limiting
 RATE_LIMIT = 10
 RATE_PERIOD = 60
@@ -59,6 +60,23 @@ bot = commands.Bot(command_prefix='/', intents=intents)
 
 import commands
 commands.setup(bot)
+
+start_http_server(8000)
+messages_sent = Counter('messages_sent', 'Amount of messages sent by the bot')
+users = Counter('users', 'Amount of users who talked to the bot')
+servers = Gauge('servers', 'Amount of servers the bot is in')
+
+def update_metrics(user_id: int) -> None:
+    try:
+        with open(config.METRICS_FILE, 'r', encoding='utf-8') as f:
+            metrics = json.load(f)
+    except (json.JSONDecodeError, FileNotFoundError):
+        metrics = {}
+    if str(user_id) not in metrics:
+        users.inc()
+        metrics[str(user_id)] = None
+        with open(config.METRICS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(metrics, f, indent=2, ensure_ascii=False)
 
 # Functions
 tools = [
@@ -205,6 +223,9 @@ async def on_message(message: discord.Message):
             pass
         return
     dq.append(now)
+
+    update_metrics(user_id)
+    servers.set(len(bot.guilds))
 
     # System prompt building
     channel_id, timestamp = get_channel_by_user(user_id)
@@ -386,6 +407,7 @@ async def on_message(message: discord.Message):
         await message.channel.send(msg_obj.content)
     else:
         await message.reply(msg_obj.content, mention_author=False)
+    messages_sent.inc()
     
 # Server join message
 @bot.event
