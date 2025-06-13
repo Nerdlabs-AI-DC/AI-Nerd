@@ -149,7 +149,7 @@ async def on_ready():
 
 async def send_message(message, system_msg=None, force_response=False):
     # Condition checking & free will
-    if message.author.id == bot.user.id:
+    if message.author.id == bot.user.id and force_response == False:
         return
 
     is_dm = isinstance(message.channel, discord.DMChannel)
@@ -403,7 +403,7 @@ async def send_message(message, system_msg=None, force_response=False):
     if DEBUG:
         print('--- RESPONSE ---')
         print(msg_obj.content)
-    if is_dm or is_allowed or freewill:
+    if is_dm or is_allowed or freewill or force_response:
         await message.channel.send(msg_obj.content)
     else:
         await message.reply(msg_obj.content, mention_author=False)
@@ -417,7 +417,11 @@ async def on_message(message: discord.Message):
 @bot.event
 async def on_guild_join(guild):
      if guild.system_channel and guild.system_channel.permissions_for(guild.me).send_messages:
-        await guild.system_channel.send(JOIN_MSG)
+        last_message = None
+        async for msg in guild.system_channel.history(limit=1):
+            last_message = msg
+        print(f"Joined server: {guild.name}. last message: {last_message.content}")
+        await send_message(last_message, system_msg=f"You've just joined {guild.name}. Say hello to everyone!", force_response=True)
 
 # Runs the bot
 if __name__ == '__main__':
