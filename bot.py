@@ -147,8 +147,7 @@ async def on_ready():
     await bot.tree.sync()
     print(f"Ready as {bot.user}")
 
-@bot.event
-async def on_message(message: discord.Message):
+async def send_message(message, system_msg=None, force_response=False):
     # Condition checking & free will
     if message.author.id == bot.user.id:
         return
@@ -408,6 +407,10 @@ async def on_message(message: discord.Message):
     else:
         await message.reply(msg_obj.content, mention_author=False)
     messages_sent.inc()
+
+@bot.event
+async def on_message(message: discord.Message):
+    await send_message(message)
     
 # Server join message
 @bot.event
