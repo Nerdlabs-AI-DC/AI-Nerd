@@ -95,6 +95,33 @@ def setup(bot):
         save_settings(settings)
         await interaction.response.send_message(f"Free will rate set to **{rate}**.")
 
+    @config_group.command(name="welcome", description="Toggle welcome messages in this channel")
+    async def freewill_rate(interaction: Interaction):
+        if not interaction.guild:
+            await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
+            return
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("You must be a server administrator to use this command.", ephemeral=True)
+            return
+        from bot import load_settings, save_settings
+        settings = load_settings()
+        sid = str(interaction.guild.id)
+        guild_settings = settings.get(sid, {})
+        allowed = guild_settings.get("welcome_msg", None)
+        chan_id = interaction.channel_id
+        if allowed == chan_id:
+            guild_settings["welcome_msg"] = None
+            action = "no longer"
+        else:
+            guild_settings["welcome_msg"] = chan_id
+            action = "now"
+        settings[sid] = guild_settings
+        save_settings(settings)
+        await interaction.response.send_message(
+            f"AI Nerd 2 will {action} welcome new members in <#{chan_id}>.",
+            ephemeral=False
+        )
+
     bot.tree.add_command(config_group)
 
     @bot.tree.command(name="delete-memories", description="Delete your memories")
@@ -428,7 +455,7 @@ Current board state: """ + str(self.board)}
         leaderboard_lines = []
         for rank, (user_id, score) in enumerate(top10, start=1):
             user = await bot.fetch_user(int(user_id))
-            leaderboard_lines.append(f"{rank}. @{user.name} - {score}")
+            leaderboard_lines.append(f"{rank}. {user.name} - {score}")
         leaderboard_str = "\n".join(leaderboard_lines) if leaderboard_lines else "No scores yet."
         await interaction.followup.send(f"### 📊 Nerdscore Leaderboard\n{leaderboard_str}")
 
