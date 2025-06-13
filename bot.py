@@ -160,7 +160,7 @@ async def send_message(message, system_msg=None, force_response=False):
         allowed = guild_settings.get("allowed_channels", [])
     is_allowed = message.channel.id in allowed
     is_pinged = RESPOND_TO_PINGS and bot.user in message.mentions
-    if not (is_dm or is_allowed or is_pinged):
+    if not (is_dm or is_allowed or is_pinged or force_response):
         settings = load_settings()
         sid = str(message.guild.id) if message.guild else None
         guild_settings = settings.get(sid, {})
@@ -202,11 +202,12 @@ async def send_message(message, system_msg=None, force_response=False):
             if rate == "high":
                 chance = 0.1
         if random.random() <= chance:
-            freewill = FREEWILL
+            freewill = True
+            system_msg = FREEWILL
         else:
             return
     else:
-        freewill = None
+        freewill = False
 
     user_id = message.author.id
     now = time.time()
@@ -315,12 +316,12 @@ async def send_message(message, system_msg=None, force_response=False):
         if attach.content_type and attach.content_type.startswith('image/'):
             user_content.append({'type': 'image_url', 'image_url': {'url': attach.url}})
 
-    if freewill:
+    if system_msg:
         messages = [
         {'role': 'system', 'content': SYSTEM_SHORT},
         *history,
         {'role': 'user', 'content': user_content, 'name': re.sub(r'[\s<|\\/>]', '_', message.author.name)},
-        {'role': 'system', 'content': freewill}
+        {'role': 'system', 'content': system_msg}
         ]
     else:
         messages = [
