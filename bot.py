@@ -421,7 +421,7 @@ async def on_guild_join(guild):
         last_message = None
         async for msg in guild.system_channel.history(limit=1):
             last_message = msg
-        await send_message(last_message, system_msg=f"You've just joined {guild.name}. Say hello to everyone!", force_response=True, functions=False)
+        await send_message(last_message, system_msg=f"You have just joined the server {guild.name}. Please send a message to say hello to everyone and introduce yourself!", force_response=True, functions=False)
 
 @bot.event
 async def on_member_join(member):
