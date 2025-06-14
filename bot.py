@@ -326,21 +326,16 @@ async def send_message(message, system_msg=None, force_response=False, functions
         {'role': 'user', 'content': user_content, 'name': re.sub(r'[\s<|\\/>]', '_', message.author.name)} # Added regex shit so openai doesn't yell at me
         ]
         
-    global tools
+    local_tools = tools
     functioncall = 'auto'
-    if functions == False:
-        tools = None
+    if not functions:
+        local_tools = None
         functioncall = None
-
-    # Api request
-    if DEBUG:
-        print('--- REQUEST ---')
-        print(json.dumps(messages, ensure_ascii=False, indent=2))
 
     if freewill:
         completion = await generate_response(
             messages,
-            functions=tools,
+            functions=local_tools,
             function_call=functioncall,
             user_id=message.author.id
         )
@@ -348,7 +343,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
         async with message.channel.typing():
             completion = await generate_response(
                 messages,
-                functions=tools,
+                functions=local_tools,
                 function_call=functioncall,
                 user_id=message.author.id
             )
