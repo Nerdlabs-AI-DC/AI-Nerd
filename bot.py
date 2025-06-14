@@ -325,7 +325,8 @@ async def send_message(message, system_msg=None, force_response=False, functions
         *history,
         {'role': 'user', 'content': user_content, 'name': re.sub(r'[\s<|\\/>]', '_', message.author.name)} # Added regex shit so openai doesn't yell at me
         ]
-
+        
+    global tools
     functioncall = 'auto'
     if functions == False:
         tools = None
