@@ -332,6 +332,10 @@ async def send_message(message, system_msg=None, force_response=False, functions
         local_tools = None
         functioncall = None
 
+    if DEBUG:
+        print('--- MESSAGE REQUEST ---')
+        print(json.dumps(messages, ensure_ascii=False, indent=2))
+
     if freewill:
         completion = await generate_response(
             messages,
