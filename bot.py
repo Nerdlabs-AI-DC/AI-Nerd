@@ -17,7 +17,6 @@ from config import (
     SYSTEM_PROMPT,
     SYSTEM_SHORT,
     FREEWILL,
-    JOIN_MSG,
     SETTINGS_FILE,
     METRICS_FILE
 )
@@ -29,6 +28,9 @@ from metrics import messages_sent, users, servers
 
 from pathlib import Path
 
+# Some variable and function definitions
+
+# Settings
 SETTINGS_PATH = Path(SETTINGS_FILE)
 
 def load_settings() -> dict:
@@ -54,6 +56,7 @@ RATE_LIMIT = 10
 RATE_PERIOD = 60
 user_requests = defaultdict(lambda: deque())
 
+# Bot setup
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
@@ -62,6 +65,7 @@ bot = commands.Bot(command_prefix='/', intents=intents)
 import commands
 commands.setup(bot)
 
+# Metrics (unused for now)
 def update_metrics(user_id: int) -> None:
     try:
         with open(config.METRICS_FILE, 'r', encoding='utf-8') as f:
@@ -137,12 +141,14 @@ tools = [
     }
 ]
 
+# Bot initialization
 @bot.event
 async def on_ready():
     init_memory_files()
     await bot.tree.sync()
     print(f"Ready as {bot.user}")
 
+# Main message handler
 async def send_message(message, system_msg=None, force_response=False, functions=True):
     # Condition checking & free will
     if message.author.id == bot.user.id and force_response == False:
@@ -205,6 +211,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
     else:
         freewill = False
 
+    # Rate limiting
     user_id = message.author.id
     now = time.time()
     dq = user_requests[user_id]
@@ -326,6 +333,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
         {'role': 'user', 'content': user_content, 'name': re.sub(r'[\s<|\\/>]', '_', message.author.name)} # Added regex shit so openai doesn't yell at me
         ]
         
+    # OpenAI request
     local_tools = tools
     functioncall = 'auto'
     if not functions:
@@ -410,6 +418,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
         await message.reply(msg_obj.content, mention_author=False)
     messages_sent.inc()
 
+# Message response
 @bot.event
 async def on_message(message: discord.Message):
     await send_message(message)
@@ -423,6 +432,7 @@ async def on_guild_join(guild):
             last_message = msg
         await send_message(last_message, system_msg=f"You have just joined the server {guild.name}. Please send a message to say hello to everyone and introduce yourself!", force_response=True, functions=False)
 
+# Welcome message
 @bot.event
 async def on_member_join(member):
     print("Detected new member join")
