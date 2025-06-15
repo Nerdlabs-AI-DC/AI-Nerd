@@ -318,20 +318,19 @@ async def send_message(message, system_msg=None, force_response=False, functions
     for attach in message.attachments:
         if attach.content_type and attach.content_type.startswith('image/'):
             user_content.append({'type': 'image_url', 'image_url': {'url': attach.url}})
+        
+    system = system_content
+    if freewill:
+        system = SYSTEM_SHORT
+
+    messages = [
+    {'role': 'system', 'content': system},
+    *history,
+    {'role': 'user', 'content': user_content, 'name': re.sub(r'[\s<|\\/>]', '_', message.author.name)} # Added regex shit so openai doesn't yell at me
+    ]
 
     if system_msg:
-        messages = [
-        {'role': 'system', 'content': SYSTEM_SHORT},
-        *history,
-        {'role': 'user', 'content': user_content, 'name': re.sub(r'[\s<|\\/>]', '_', message.author.name)},
-        {'role': 'system', 'content': system_msg}
-        ]
-    else:
-        messages = [
-        {'role': 'system', 'content': system_content},
-        *history,
-        {'role': 'user', 'content': user_content, 'name': re.sub(r'[\s<|\\/>]', '_', message.author.name)} # Added regex shit so openai doesn't yell at me
-        ]
+        messages.append({'role': 'system', 'content': system_msg})
         
     # OpenAI request
     local_tools = tools
@@ -435,17 +434,17 @@ async def on_guild_join(guild):
 # Welcome message
 @bot.event
 async def on_member_join(member):
-    print("Detected new member join")
     guild = member.guild
     settings = load_settings()
     guild_settings = settings.get(str(guild.id), {})
     welcome_setting = guild_settings.get("welcome_msg")
     if welcome_setting:
+        if DEBUG:
+            print(f"{member.name} has joined {member.guild.name}")
         channel = await bot.fetch_channel(welcome_setting)
         last_message = None
         async for msg in channel.history(limit=1):
             last_message = msg
-        print("Sending welcome message")
         await send_message(
             last_message,
             system_msg=f"A new member, {member.display_name}, has joined the server. Please send a welcome message. Make sure to mention them at least once using {member.mention}",
