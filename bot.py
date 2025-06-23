@@ -78,6 +78,8 @@ def update_metrics(user_id: int) -> None:
         with open(config.METRICS_FILE, 'w', encoding='utf-8') as f:
             json.dump(metrics, f, indent=2, ensure_ascii=False)
 
+chatrevive_task_started = False
+
 # Functions
 tools = [
     {
@@ -144,9 +146,13 @@ tools = [
 # Bot initialization
 @bot.event
 async def on_ready():
+    global chatrevive_task_started
     init_memory_files()
     await bot.tree.sync()
     print(f"Ready as {bot.user}")
+    if not chatrevive_task_started:
+        asyncio.create_task(chatrevive_task())
+        chatrevive_task_started = True
 
 # Main message handler
 async def send_message(message, system_msg=None, force_response=False, functions=True):
@@ -451,6 +457,40 @@ async def on_member_join(member):
             force_response=True,
             functions=False
         )
+
+# Chat revive
+async def chatrevive_task():
+    await bot.wait_until_ready()
+    while not bot.is_closed():
+        settings = load_settings()
+        for guild in bot.guilds:
+            sid = str(guild.id)
+            guild_settings = settings.get(sid, {})
+            chatrevive = guild_settings.get("chatrevive", {})
+            channel_id = chatrevive.get("channel_id")
+            timeout = chatrevive.get("timeout")
+            role_id = chatrevive.get("role_id")
+            if channel_id and timeout and role_id:
+                try:
+                    channel = await bot.fetch_channel(channel_id)
+                    last_message = None
+                    async for msg in channel.history(limit=1):
+                        last_message = msg
+                    if last_message:
+                        now = datetime.datetime.now(datetime.timezone.utc)
+                        delta = now - last_message.created_at
+                        if delta.total_seconds() > timeout * 60:
+                            role_mention = f"<@&{role_id}>"
+                            await send_message(
+                                last_message,
+                                system_msg=f"The chat has been quiet for a while. Please send a message to help revive the conversation. Make sure to mention the revive role using {role_mention} at least once.",
+                                force_response=True,
+                                functions=False
+                            )
+                except Exception as e:
+                    if DEBUG:
+                        print(f"[ChatRevive] Error: {e}")
+        await asyncio.sleep(60)
 
 # Runs the bot
 if __name__ == '__main__':

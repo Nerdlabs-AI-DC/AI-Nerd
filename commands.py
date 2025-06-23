@@ -122,6 +122,60 @@ def setup(bot):
             ephemeral=False
         )
 
+    @config_group.command(name="chatrevive-set", description="Set this channel as a chat revive channel, set timeout, and set the role to mention.")
+    @app_commands.describe(timeout="Timeout in minutes before revive message is sent", role="Role to mention for chat revive")
+    async def chatrevive(interaction: Interaction, timeout: int, role: discord.Role):
+        if not interaction.guild:
+            await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
+            return
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("You must be a server administrator to use this command.", ephemeral=True)
+            return
+        from bot import load_settings, save_settings
+        settings = load_settings()
+        sid = str(interaction.guild.id)
+        guild_settings = settings.get(sid, {})
+        chatrevive = guild_settings.get("chatrevive", {})
+        chan_id = interaction.channel_id
+        if role is None:
+            await interaction.response.send_message("You must specify a role to mention for chat revive.", ephemeral=True)
+            return
+        guild_settings["chatrevive"] = {
+            "channel_id": chan_id,
+            "timeout": timeout,
+            "role_id": role.id
+        }
+        settings[sid] = guild_settings
+        save_settings(settings)
+        await interaction.response.send_message(
+            f"Chat revive enabled for <#{chan_id}>. Timeout: {timeout} minutes. Role to mention: {role.mention}",
+            ephemeral=False
+        )
+
+    @config_group.command(name="chatrevive-disable", description="Disable chat revive messages in this server.")
+    @app_commands.describe(timeout="Timeout in minutes before revive message is sent", role="Role to mention for chat revive")
+    async def chatrevive(interaction: Interaction, timeout: int, role: discord.Role):
+        if not interaction.guild:
+            await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
+            return
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("You must be a server administrator to use this command.", ephemeral=True)
+            return
+        from bot import load_settings, save_settings
+        settings = load_settings()
+        sid = str(interaction.guild.id)
+        guild_settings = settings.get(sid, {})
+        chatrevive = guild_settings.get("chatrevive", {})
+        chan_id = interaction.channel_id
+        setting_chan_id = chatrevive.get("channel_id")
+        if chatrevive.get("channel_id"):
+            guild_settings["chatrevive"] = {}
+            settings[sid] = guild_settings
+            save_settings(settings)
+            await interaction.response.send_message(f"Chat revive is now disabled for <#{setting_chan_id}>.", ephemeral=False)
+        else:
+            await interaction.response.send_message(f"Chat revive is already disabled in this server.", ephemeral=False)
+
     bot.tree.add_command(config_group)
 
     @bot.tree.command(name="delete-memories", description="Delete your memories")
