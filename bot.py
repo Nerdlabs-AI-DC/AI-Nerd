@@ -483,13 +483,13 @@ async def chatrevive_task():
                             role_mention = f"<@&{role_id}>"
                             await send_message(
                                 last_message,
-                                system_msg=f"The chat has been quiet for a while. Please send a message to help revive the conversation. Make sure to mention the revive role using {role_mention} at least once.",
+                                system_msg=f"The chat has been quiet for a while. Please send a message to help revive the conversation. Make sure to mention the revive role using {role_mention} at least once. Also, include an interesting question to get people talking again.",
                                 force_response=True,
                                 functions=False
                             )
                 except Exception as e:
                     if DEBUG:
-                        print(f"[ChatRevive] Error: {e}")
+                        print(f"Chat revive error: {e}")
         await asyncio.sleep(60)
 
 # Runs the bot

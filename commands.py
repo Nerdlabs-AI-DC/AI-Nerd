@@ -64,6 +64,10 @@ def setup(bot):
             allowed.remove(chan_id)
             action = "no longer"
         else:
+            permissions = interaction.channel.permissions_for(interaction.guild.me)
+            if not permissions.send_messages:
+                await interaction.response.send_message("I do not have permission to send messages in this channel.", ephemeral=True)
+                return
             allowed.append(chan_id)
             action = "now"
         guild_settings["allowed_channels"] = allowed
@@ -103,6 +107,10 @@ def setup(bot):
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message("You must be a server administrator to use this command.", ephemeral=True)
             return
+        permissions = interaction.channel.permissions_for(interaction.guild.me)
+        if not permissions.send_messages:
+            await interaction.response.send_message("I do not have permission to send messages in this channel.", ephemeral=True)
+            return
         from bot import load_settings, save_settings
         settings = load_settings()
         sid = str(interaction.guild.id)
@@ -122,14 +130,18 @@ def setup(bot):
             ephemeral=False
         )
 
-    @config_group.command(name="chatrevive-set", description="Set this channel as a chat revive channel, set timeout, and set the role to mention.")
-    @app_commands.describe(timeout="Timeout in minutes before revive message is sent", role="Role to mention for chat revive")
+    @config_group.command(name="chatrevive-set", description="Make AI Nerd 2 send a chat revive message when the channel is inactive")
+    @app_commands.describe(timeout="Time since last message before revive message is sent", role="Role to mention for chat revive")
     async def chatrevive(interaction: Interaction, timeout: int, role: discord.Role):
         if not interaction.guild:
             await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
             return
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message("You must be a server administrator to use this command.", ephemeral=True)
+            return
+        permissions = interaction.channel.permissions_for(interaction.guild.me)
+        if not permissions.send_messages:
+            await interaction.response.send_message("I do not have permission to send messages in this channel.", ephemeral=True)
             return
         from bot import load_settings, save_settings
         settings = load_settings()
@@ -153,8 +165,7 @@ def setup(bot):
         )
 
     @config_group.command(name="chatrevive-disable", description="Disable chat revive messages in this server.")
-    @app_commands.describe(timeout="Timeout in minutes before revive message is sent", role="Role to mention for chat revive")
-    async def chatrevive(interaction: Interaction, timeout: int, role: discord.Role):
+    async def chatrevive(interaction: Interaction):
         if not interaction.guild:
             await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
             return
