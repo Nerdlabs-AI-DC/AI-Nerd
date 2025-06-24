@@ -80,6 +80,16 @@ def update_metrics(user_id: int) -> None:
 
 chatrevive_task_started = False
 
+async def replace_role_mentions(text, guild):
+    def repl(match):
+        role_id = int(match.group(1))
+        role = guild.get_role(role_id)
+        return f"@{role.name}" if role else "@role"
+    text = re.sub(r'<@&(\d+)>', repl, text)
+    text = re.sub(r'@everyone', '@redacted', text, flags=re.IGNORECASE)
+    text = re.sub(r'@here', '@redacted', text, flags=re.IGNORECASE)
+    return text
+
 # Functions
 tools = [
     {
@@ -417,10 +427,11 @@ async def send_message(message, system_msg=None, force_response=False, functions
     if DEBUG:
         print('--- RESPONSE ---')
         print(msg_obj.content)
+    content = await replace_role_mentions(msg_obj.content, message.guild) if message.guild and not force_response else msg_obj.content
     if is_dm or is_allowed or freewill or force_response:
-        await message.channel.send(msg_obj.content)
+        await message.channel.send(content)
     else:
-        await message.reply(msg_obj.content, mention_author=False)
+        await message.reply(content, mention_author=False)
     messages_sent.inc()
 
 # Message response
