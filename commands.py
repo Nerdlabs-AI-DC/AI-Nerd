@@ -143,6 +143,18 @@ def setup(bot):
         if not permissions.send_messages:
             await interaction.response.send_message("I do not have permission to send messages in this channel.", ephemeral=True)
             return
+        
+        can_mention = False
+        bot_member = interaction.guild.me
+        if (permissions.mention_everyone and bot_member.top_role > role) or role.mentionable:
+            can_mention = True
+        if not can_mention:
+            await interaction.response.send_message(
+                f"I do not have permission to mention the role {role.mention} in this channel.",
+                ephemeral=True
+            )
+            return
+
         from bot import load_settings, save_settings
         settings = load_settings()
         sid = str(interaction.guild.id)
