@@ -18,7 +18,8 @@ from config import (
     SYSTEM_SHORT,
     FREEWILL,
     SETTINGS_FILE,
-    METRICS_FILE
+    METRICS_FILE,
+    FREEWILL_MESSAGE_INTERVAL
 )
 from memory import init_memory_files, save_memory, get_memory_detail, save_user_memory, get_user_memory_detail, save_context, get_channel_by_user
 from openai_client import generate_response
@@ -150,6 +151,18 @@ tools = [
             'type': 'object',
             'properties': {}
         }
+    },
+    {
+        'name': 'add_reaction',
+        'description': 'Add emoji reactions to a message. Can be used to react to user\'s message or your own message after sending.',
+        'parameters': {
+            'type': 'object',
+            'properties': {
+                'emojis': {'type': 'array', 'items': {'type': 'string'}, 'description': 'List of emojis to react with'},
+                'target': {'type': 'string', 'enum': ['user', 'self'], 'description': 'Whether to react to user\'s message or your own message'}
+            },
+            'required': ['emojis', 'target']
+        }
     }
 ]
 
@@ -162,6 +175,7 @@ async def on_ready():
     print(f"Ready as {bot.user}")
     if not chatrevive_task_started:
         asyncio.create_task(chatrevive_task())
+        asyncio.create_task(freewill_task())
         chatrevive_task_started = True
 
 # Main message handler
@@ -415,6 +429,21 @@ async def send_message(message, system_msg=None, force_response=False, functions
         elif name == 'give_nerdscore':
             increase_nerdscore(message.author.id, 1)
             messages.append({'role': 'system', 'content': f'You gave {message.author.name} 1 nerdscore.'})
+        elif name == 'add_reaction' and config.REACTIONS:
+            if isinstance(args.get('emojis'), list) and args.get('target') == 'user':
+                for emoji in args.get('emojis'):
+                    try:
+                        if DEBUG:
+                            print(f"Adding reaction {emoji} to user message")
+                        await message.add_reaction(emoji)
+                        await asyncio.sleep(0.5)
+                        messages.append({'role': 'system', 'content': f'You reacted to {message.author.name}\'s message with {emoji}.'})
+                    except Exception as e:
+                        if DEBUG:
+                            print(f"Error adding reaction: {e}")
+                        messages.append({'role': 'system', 'content': f'Failed to add reaction {emoji}: {str(e)}'})
+            elif isinstance(args.get('emojis'), list) and args.get('target') == 'self':
+                messages.append({'role': 'system', 'content': f'You will react to your own message with emoji(s): {", ".join(args.get("emojis"))}'})
         completion = await generate_response(
             messages,
             functions=None,
@@ -433,6 +462,23 @@ async def send_message(message, system_msg=None, force_response=False, functions
     else:
         await message.reply(content, mention_author=False)
     messages_sent.inc()
+
+    # super-duper epic reactions yay
+    if config.REACTIONS and msg_obj.function_call and msg_obj.function_call.name == 'add_reaction':
+        args = json.loads(msg_obj.function_call.arguments or '{}')
+        if args.get('target') == 'self' and isinstance(args.get('emojis'), list) and len(args.get('emojis')) > 0:
+            last_message = None
+            async for msg in message.channel.history(limit=1):
+                if msg.author.id == bot.user.id:
+                    last_message = msg
+                    break
+            if last_message:
+                for emoji in args.get('emojis'):
+                    try:
+                        await last_message.add_reaction(emoji)
+                    except Exception as e:
+                        if DEBUG:
+                            print(f"Error adding reaction: {e}")
 
 # Message response
 @bot.event
@@ -502,6 +548,90 @@ async def chatrevive_task():
                     if DEBUG:
                         print(f"Chat revive error: {e}")
         await asyncio.sleep(60)
+
+async def freewill_task():
+    await bot.wait_until_ready()
+    while not bot.is_closed():
+        try:
+            settings = load_settings()
+            for guild in bot.guilds:
+                sid = str(guild.id)
+                guild_settings = settings.get(sid, {})
+                rate = guild_settings.get('freewill_rate', "mid")
+                
+                if rate == 0:
+                    continue
+                
+                allowed_channels = guild_settings.get("allowed_channels", [])
+                if not allowed_channels:
+                    continue
+                
+                channel_id = random.choice(allowed_channels)
+                try:
+                    channel = await bot.fetch_channel(channel_id)
+                    
+                    messages = []
+                    async for msg in channel.history(limit=5):
+                        messages.append(msg)
+                    
+                    if not messages:
+                        continue
+                    
+                    should_send = False
+                    last_bot_message_time = None
+                    
+                    for msg in messages:
+                        if msg.author.id == bot.user.id:
+                            last_bot_message_time = msg.created_at
+                            break
+                    
+                    now = datetime.datetime.now(datetime.timezone.utc)
+                    
+                    if last_bot_message_time:
+                        time_since_last = (now - last_bot_message_time).total_seconds()
+                        
+                        if time_since_last < 600:
+                            continue
+                            
+                        if time_since_last > 7200:
+                            if rate == "low":
+                                chance = 0.05
+                            elif rate == "mid":
+                                chance = 0.15
+                            else:
+                                chance = 0.3
+                        else:
+                            if rate == "low":
+                                chance = 0.01
+                            elif rate == "mid":
+                                chance = 0.05
+                            else:  # high
+                                chance = 0.1
+                    else:
+                        if rate == "low":
+                            chance = 0.03
+                        elif rate == "mid":
+                            chance = 0.08
+                        else:
+                            chance = 0.15
+                    
+                    if random.random() <= chance:
+                        if DEBUG:
+                            print(f"Sending free will message to {guild.name}/{channel.name}")
+                        await send_message(
+                            messages[0],
+                            system_msg=FREEWILL,
+                            force_response=True,
+                            functions=True
+                        )
+                except Exception as e:
+                    if DEBUG:
+                        print(f"Free will message error: {e}")
+        except Exception as e:
+            if DEBUG:
+                print(f"Free will task error: {e}")
+        
+        await asyncio.sleep(config.FREEWILL_MESSAGE_INTERVAL)
 
 # Runs the bot
 if __name__ == '__main__':

@@ -10,7 +10,7 @@ AI Nerd can view and discuss images you send. This allows it to see memes, assis
 ### Memory
 AI Nerd has a memory system. It can remember important information, past conversations, and more, and recall these memories later.
 ### Discord Integration
-AI Nerd is deeply integrated with Discord. It can see channel history, recognize which server it's in, change its status, read usernames, and more.
+AI Nerd is deeply integrated with Discord. It can see channel history, recognize which server it's in, change its status, read usernames, react to messages with emojis, and more.
 ### Games
 AI Nerd offers a variety of game commands under the /fun category. Completing these games can increase your NerdScore, a built-in point system.
 ## Commands
