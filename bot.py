@@ -19,7 +19,8 @@ from config import (
     FREEWILL,
     SETTINGS_FILE,
     METRICS_FILE,
-    FREEWILL_MESSAGE_INTERVAL
+    FREEWILL_MESSAGE_INTERVAL,
+    FREEWILL_TIMEOUT
 )
 from memory import init_memory_files, save_memory, get_memory_detail, save_user_memory, get_user_memory_detail, save_context, get_channel_by_user
 from openai_client import generate_response
@@ -552,85 +553,108 @@ async def chatrevive_task():
 async def freewill_task():
     await bot.wait_until_ready()
     while not bot.is_closed():
+        if DEBUG:
+            print("Running freewill task")
         try:
+            try:
+                with open(config.CONTEXT_FILE, 'r', encoding='utf-8') as f:
+                    context = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                context = {}
+
             settings = load_settings()
-            for guild in bot.guilds:
-                sid = str(guild.id)
-                guild_settings = settings.get(sid, {})
-                rate = guild_settings.get('freewill_rate', "mid")
-                
-                if rate == 0:
+            for user_id, info in context.items():
+                channel_id = info.get('channel_id')
+                if not channel_id:
                     continue
-                
-                allowed_channels = guild_settings.get("allowed_channels", [])
-                if not allowed_channels:
+                channel = None
+                guild = None
+                for g in bot.guilds:
+                    try:
+                        ch = g.get_channel(channel_id)
+                        if ch:
+                            channel = ch
+                            guild = g
+                            break
+                    except Exception:
+                        continue
+                if not channel:
+                    try:
+                        channel = await bot.fetch_channel(channel_id)
+                        guild = getattr(channel, 'guild', None)
+                    except Exception:
+                        continue
+                if not channel:
                     continue
-                
-                channel_id = random.choice(allowed_channels)
+                is_dm = isinstance(channel, discord.DMChannel)
+                if is_dm:
+                    rate = "mid"
+                else:
+                    if not guild:
+                        continue
+                    sid = str(guild.id)
+                    guild_settings = settings.get(sid, {})
+                    rate = guild_settings.get('freewill_rate', "mid")
+                    if rate == 0:
+                        continue
+                messages = []
                 try:
-                    channel = await bot.fetch_channel(channel_id)
-                    
-                    messages = []
                     async for msg in channel.history(limit=5):
                         messages.append(msg)
-                    
-                    if not messages:
+                except Exception:
+                    continue
+                if not messages:
+                    continue
+                last_bot_message_time = None
+                for msg in messages:
+                    if msg.author.id == bot.user.id:
+                        last_bot_message_time = msg.created_at
+                        break
+                now = datetime.datetime.now(datetime.timezone.utc)
+                if last_bot_message_time:
+                    time_since_last = (now - last_bot_message_time).total_seconds()
+                    if time_since_last < 600:
                         continue
-                    
-                    should_send = False
-                    last_bot_message_time = None
-                    
-                    for msg in messages:
-                        if msg.author.id == bot.user.id:
-                            last_bot_message_time = msg.created_at
-                            break
-                    
-                    now = datetime.datetime.now(datetime.timezone.utc)
-                    
-                    if last_bot_message_time:
-                        time_since_last = (now - last_bot_message_time).total_seconds()
-                        
-                        if time_since_last < 600:
-                            continue
-                            
-                        if time_since_last > 7200:
-                            if rate == "low":
-                                chance = 0.05
-                            elif rate == "mid":
-                                chance = 0.15
-                            else:
-                                chance = 0.3
+                    if time_since_last > 7200:
+                        if rate == "low":
+                            chance = 0.05
+                        elif rate == "mid":
+                            chance = 0.15
                         else:
-                            if rate == "low":
-                                chance = 0.01
-                            elif rate == "mid":
-                                chance = 0.05
-                            else:  # high
-                                chance = 0.1
+                            chance = 0.3
                     else:
                         if rate == "low":
-                            chance = 0.03
+                            chance = 0.01
                         elif rate == "mid":
-                            chance = 0.08
+                            chance = 0.05
                         else:
-                            chance = 0.15
-                    
-                    if random.random() <= chance:
-                        if DEBUG:
+                            chance = 0.1
+                else:
+                    if rate == "low":
+                        chance = 0.03
+                    elif rate == "mid":
+                        chance = 0.08
+                    else:
+                        chance = 0.15
+                if random.random() <= chance:
+                    if DEBUG:
+                        if is_dm:
+                            print(f"Sending free will message to DM with user {user_id}")
+                        else:
                             print(f"Sending free will message to {guild.name}/{channel.name}")
+                    try:
                         await send_message(
                             messages[0],
-                            system_msg=FREEWILL,
+                            system_msg=FREEWILL_TIMEOUT,
                             force_response=True,
                             functions=True
                         )
-                except Exception as e:
-                    if DEBUG:
-                        print(f"Free will message error: {e}")
+                    except Exception as e:
+                        if DEBUG:
+                            print(f"Free will message error: {e}")
         except Exception as e:
             if DEBUG:
                 print(f"Free will task error: {e}")
-        
         await asyncio.sleep(config.FREEWILL_MESSAGE_INTERVAL)
 
 # Runs the bot

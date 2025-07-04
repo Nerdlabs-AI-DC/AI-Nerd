@@ -151,3 +151,11 @@ The conversation is about something nerdy,
 AI Nerd 2 is mentioned,
 You are in a conversation with user
 If none of these conditions are met, cancel response."""
+
+# Other free will prompt
+FREEWILL_TIMEOUT = """This channel has been inactive for a while. Respond if the message falls under any of these conditions:
+A meme is sent,
+The conversation is about something nerdy,
+AI Nerd 2 is mentioned,
+You are in a conversation with user
+If none of these conditions are met, cancel response."""
