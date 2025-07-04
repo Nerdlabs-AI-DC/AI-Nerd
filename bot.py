@@ -236,7 +236,8 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 chance = 0.1
         if random.random() <= chance:
             freewill = True
-            system_msg = FREEWILL
+            if not system_msg:
+                system_msg = FREEWILL
         else:
             return
     else:
@@ -613,41 +614,40 @@ async def freewill_task():
                 now = datetime.datetime.now(datetime.timezone.utc)
                 if last_bot_message_time:
                     time_since_last = (now - last_bot_message_time).total_seconds()
-                    if time_since_last < 600:
-                        continue
-                    if time_since_last > 7200:
-                        if rate == "low":
-                            chance = 0.05
-                        elif rate == "mid":
-                            chance = 0.15
-                        else:
-                            chance = 0.3
-                    else:
-                        if rate == "low":
-                            chance = 0.01
-                        elif rate == "mid":
-                            chance = 0.05
-                        else:
-                            chance = 0.1
-                else:
-                    if rate == "low":
-                        chance = 0.03
-                    elif rate == "mid":
-                        chance = 0.08
-                    else:
-                        chance = 0.15
+                    # if time_since_last < 600:
+                    #     continue
+                #     if time_since_last > 7200:
+                #         if rate == "low":
+                #             chance = 0.05
+                #         elif rate == "mid":
+                #             chance = 0.15
+                #         else:
+                #             chance = 0.3
+                #     else:
+                #         if rate == "low":
+                #             chance = 0.01
+                #         elif rate == "mid":
+                #             chance = 0.05
+                #         else:
+                #             chance = 0.1
+                # else:
+                #     if rate == "low":
+                #         chance = 0.03
+                #     elif rate == "mid":
+                #         chance = 0.08
+                #     else:
+                #         chance = 0.15
+                chance = 1
                 if random.random() <= chance:
                     if DEBUG:
                         if is_dm:
-                            print(f"Sending free will message to DM with user {user_id}")
+                            print(f"Attempting free will message to DM with user {user_id}")
                         else:
-                            print(f"Sending free will message to {guild.name}/{channel.name}")
+                            print(f"Attempting free will message to {guild.name}/{channel.name}")
                     try:
                         await send_message(
                             messages[0],
-                            system_msg=FREEWILL_TIMEOUT,
-                            force_response=True,
-                            functions=True
+                            system_msg=FREEWILL_TIMEOUT
                         )
                     except Exception as e:
                         if DEBUG:
