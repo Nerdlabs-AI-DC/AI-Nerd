@@ -10,7 +10,7 @@ MODEL = "gpt-4.1-mini"
 REASONING_MODEL = "o4-mini"
 DEBUG = False # I recommend enabling this while testing
 REACTIONS = True # This enables/disables message reactions!
-FREEWILL_MESSAGE_INTERVAL = 60  # Time in seconds between free will message checks (default: 1 hour)
+FREEWILL_MESSAGE_INTERVAL = 300  # Time in seconds between free will message checks (default: 5 minutes)
 
 # Files
 DATA_DIR = Path("data")
