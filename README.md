@@ -12,10 +12,13 @@ AI Nerd has a memory system. It can remember important information, past convers
 ### Discord Integration
 AI Nerd is deeply integrated with Discord. It can see channel history, recognize which server it's in, change its status, read usernames, react to messages with emojis, and more.
 ### Games
-AI Nerd offers a variety of game commands under the /fun category. Completing these games can increase your NerdScore, a built-in point system.
+AI Nerd offers a variety of game commands under the /fun category. Completing these games can increase your nerdscore, a built-in point system.
 ## Commands
 - /config activate – Makes AI Nerd respond to all messages in the channel where the command is used, even if it's not mentioned.
 - /config freewill – Controls how often AI Nerd should react without being mentioned.
+- /config chatrevive-set - Makes AI Nerd send a chat revive message when the channel is inactive for a set amount of minutes.
+- /config chatrevive-disable - Disables chat revive messages.
+- /config welcome - Makes AI Nerd welcome new server members in the channel where the command is used.
 - /delete-memories - Delete your personal memories.
 - /status - Shows the system status of AI Nerd.
 - /fun ___ - Games and fun stuff.
@@ -35,6 +38,7 @@ By using AI Nerd 2 you agree to the [Terms of Service](https://docs.google.com/d
 - [`openai_client.py`](openai_client.py): Handles OpenAI API calls.
 - [`config.py`](config.py): Configuration and system prompts.
 - [`nerdscore.py`](nerdscore.py): Nerdscore point system management.
+- [`metrics.py`](metrics.py): Sets up message tracking with prometheus (currently unused).
 
 ---
 
