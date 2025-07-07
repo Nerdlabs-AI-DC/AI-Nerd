@@ -114,6 +114,8 @@ nice try lil bro
 * Privacy Policy: https://docs.google.com/document/d/1-07kJ2zpO0_DVLHQE1TBvMZXqynkzdczirtTYXEnAcc/edit?usp=sharing
 * Use `/fun` commands for games like 8ball, trivia, and tictactoe.
 * Users can earn nerdscore by playing and check it with `/fun nerdscore`.
+* Server admins can use `/config chatrevive-set` to enable chat revive messages, or use `/config chatrevive-set` to disable them.
+* Server admins can use `/config welcome` to toggle welcome messages.
 
 # Functions
 
