@@ -164,6 +164,17 @@ tools = [
             },
             'required': ['emojis', 'target']
         }
+    },
+    {
+        'name': 'reply',
+        'description': 'Reply to a message other than the last one.',
+        'parameters': {
+            'type': 'object',
+            'properties': {
+                'message_id': {'type': 'integer'}
+            },
+            'required': ['message_id']
+        }
     }
 ]
 
@@ -297,7 +308,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 replied_content = None
             if replied_content:
                 content.append({'type': 'text', 'text': f"Replying to {replied_message.author.display_name}: {replied_content}"})
-            content.append({'type': 'text', 'text': f"Message id: {msg.id}"})
+            content.append({'type': 'text', 'text': f"Message ID: {msg.id}"})
             content.append({'type': 'text', 'text': f"{msg.author.display_name}: {msg.content}"})
             for attach in msg.attachments:
                 if attach.content_type and attach.content_type.startswith('image/'):
@@ -347,7 +358,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
     if message.content:
         if replied_content:
             user_content.append({'type': 'text', 'text': f"Replying to {replied_message.author.display_name}: {replied_content}"})
-        user_content.append({'type': 'text', 'text': f"Message id: {message.id}"})
+        user_content.append({'type': 'text', 'text': f"Message ID: {message.id}"})
         user_content.append({'type': 'text', 'text': f"{message.author.display_name}: {message.content}"})
     for attach in message.attachments:
         if attach.content_type and attach.content_type.startswith('image/'):
@@ -393,6 +404,8 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 user_id=message.author.id
             )
     msg_obj = completion.choices[0].message
+
+    reply_msg = None
 
     # Functions
     if msg_obj.function_call is not None:
@@ -448,6 +461,11 @@ async def send_message(message, system_msg=None, force_response=False, functions
                         messages.append({'role': 'system', 'content': f'Failed to add reaction {emoji}: {str(e)}'})
             elif isinstance(args.get('emojis'), list) and args.get('target') == 'self':
                 messages.append({'role': 'system', 'content': f'You will react to your own message with emoji(s): {", ".join(args.get("emojis"))}'})
+        elif name == 'reply':
+            reply_msg = await message.channel.fetch_message(args['message_id'])
+            messages.append({'role': 'system', 'content': f'You used the reply function with message ID {args["message_id"]}.'})
+            if DEBUG:
+                print(f"Replying to message ID {args['message_id']}")
         completion = await generate_response(
             messages,
             functions=None,
@@ -461,7 +479,9 @@ async def send_message(message, system_msg=None, force_response=False, functions
         print('--- RESPONSE ---')
         print(msg_obj.content)
     content = await replace_role_mentions(msg_obj.content, message.guild) if message.guild and not force_response else msg_obj.content
-    if is_dm or is_allowed or freewill or force_response:
+    if reply_msg:
+        await reply_msg.reply(content, mention_author=False)
+    elif is_dm or is_allowed or freewill or force_response:
         await message.channel.send(content)
     else:
         await message.reply(content, mention_author=False)
