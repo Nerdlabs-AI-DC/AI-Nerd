@@ -160,9 +160,10 @@ tools = [
             'type': 'object',
             'properties': {
                 'emojis': {'type': 'array', 'items': {'type': 'string'}, 'description': 'List of emojis to react with'},
-                'target': {'type': 'string', 'enum': ['user', 'self'], 'description': 'Whether to react to user\'s message or your own message'}
+                'target': {'type': 'string', 'enum': ['user', 'self'], 'description': 'Whether to react to user\'s message or your own message'},
+                'send_followup': {'type': 'boolean', 'description': 'Whether to send a follow-up message after reacting'}
             },
-            'required': ['emojis', 'target']
+            'required': ['emojis', 'target', 'send_followup'],
         }
     },
     {
@@ -461,6 +462,8 @@ async def send_message(message, system_msg=None, force_response=False, functions
                         messages.append({'role': 'system', 'content': f'Failed to add reaction {emoji}: {str(e)}'})
             elif isinstance(args.get('emojis'), list) and args.get('target') == 'self':
                 messages.append({'role': 'system', 'content': f'You will react to your own message with emoji(s): {", ".join(args.get("emojis"))}'})
+            if args['send_followup'] == False:
+                return
         elif name == 'reply':
             reply_msg = await message.channel.fetch_message(args['message_id'])
             messages.append({'role': 'system', 'content': f'You used the reply function with message ID {args["message_id"]}.'})
