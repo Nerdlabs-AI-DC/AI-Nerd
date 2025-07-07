@@ -297,6 +297,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 replied_content = None
             if replied_content:
                 content.append({'type': 'text', 'text': f"Replying to {replied_message.author.display_name}: {replied_content}"})
+            content.append({'type': 'text', 'text': f"Message id: {msg.id}"})
             content.append({'type': 'text', 'text': f"{msg.author.display_name}: {msg.content}"})
             for attach in msg.attachments:
                 if attach.content_type and attach.content_type.startswith('image/'):
@@ -346,6 +347,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
     if message.content:
         if replied_content:
             user_content.append({'type': 'text', 'text': f"Replying to {replied_message.author.display_name}: {replied_content}"})
+        user_content.append({'type': 'text', 'text': f"Message id: {message.id}"})
         user_content.append({'type': 'text', 'text': f"{message.author.display_name}: {message.content}"})
     for attach in message.attachments:
         if attach.content_type and attach.content_type.startswith('image/'):
