@@ -464,8 +464,6 @@ async def send_message(message, system_msg=None, force_response=False, functions
         elif name == 'reply':
             reply_msg = await message.channel.fetch_message(args['message_id'])
             messages.append({'role': 'system', 'content': f'You used the reply function with message ID {args["message_id"]}.'})
-            if DEBUG:
-                print(f"Replying to message ID {args['message_id']}")
         completion = await generate_response(
             messages,
             functions=None,
@@ -586,9 +584,10 @@ async def freewill_task():
                 context = {}
 
             settings = load_settings()
+            processed_channels = set()
             for user_id, info in context.items():
                 channel_id = info.get('channel_id')
-                if not channel_id:
+                if not channel_id or channel_id in processed_channels:
                     continue
                 channel = None
                 guild = None
@@ -609,6 +608,7 @@ async def freewill_task():
                         continue
                 if not channel:
                     continue
+                processed_channels.add(channel_id)
                 is_dm = isinstance(channel, discord.DMChannel)
                 if is_dm:
                     rate = "mid"
