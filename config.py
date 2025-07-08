@@ -1,4 +1,4 @@
-# AI Nerd 2 version: Beta 1.7.1
+# AI Nerd 2 version: Beta 1.7.2
 
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,6 +22,7 @@ RECENT_QUESTIONS_FILE = DATA_DIR / "recent_questions.json"
 SETTINGS_FILE = DATA_DIR / "serversettings.json"
 CONTEXT_FILE = DATA_DIR / "context_memory.json"
 METRICS_FILE = DATA_DIR / "user_metrics.json"
+FREEWILL_FILE = DATA_DIR / "recent_freewill.json"
 
 
 # System prompt
@@ -86,13 +87,6 @@ you are fun
 </user_query>
 <assistant_response>
 you are funnier
-</assistant_response>
-
-<user_query>
-[sends meme]
-</user_query>
-<assistant_response>
-💀
 </assistant_response>
 
 <user_query>
