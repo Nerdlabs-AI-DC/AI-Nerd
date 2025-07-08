@@ -20,7 +20,8 @@ from config import (
     SETTINGS_FILE,
     METRICS_FILE,
     FREEWILL_MESSAGE_INTERVAL,
-    FREEWILL_TIMEOUT
+    FREEWILL_TIMEOUT,
+    FREEWILL_FILE
 )
 from memory import init_memory_files, save_memory, get_memory_detail, save_user_memory, get_user_memory_detail, save_context, get_channel_by_user
 from openai_client import generate_response
@@ -406,6 +407,16 @@ async def send_message(message, system_msg=None, force_response=False, functions
             )
     msg_obj = completion.choices[0].message
 
+    if system_msg == FREEWILL_TIMEOUT:
+        try:
+            with open(config.FREEWILL_FILE, 'r', encoding='utf-8') as f:
+                freewill_attempts = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            freewill_attempts = {}
+        freewill_attempts[str(channel_id)] = message.id
+        with open(config.FREEWILL_FILE, 'w', encoding='utf-8') as f:
+            json.dump(freewill_attempts, f, indent=2)
+
     reply_msg = None
 
     # Functions
@@ -586,6 +597,12 @@ async def freewill_task():
             except (FileNotFoundError, json.JSONDecodeError):
                 context = {}
 
+            try:
+                with open(config.FREEWILL_FILE, 'r', encoding='utf-8') as f:
+                    freewill_attempts = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                freewill_attempts = {}
+
             settings = load_settings()
             processed_channels = set()
             for user_id, info in context.items():
@@ -631,37 +648,21 @@ async def freewill_task():
                     continue
                 if not messages:
                     continue
+                last_message = messages[0]
                 last_bot_message_time = None
                 for msg in messages:
                     if msg.author.id == bot.user.id:
                         last_bot_message_time = msg.created_at
                         break
                 now = datetime.datetime.now(datetime.timezone.utc)
-                if last_bot_message_time:
-                    time_since_last = (now - last_bot_message_time).total_seconds()
-                    # if time_since_last < 600:
-                    #     continue
-                #     if time_since_last > 7200:
-                #         if rate == "low":
-                #             chance = 0.05
-                #         elif rate == "mid":
-                #             chance = 0.15
-                #         else:
-                #             chance = 0.3
-                #     else:
-                #         if rate == "low":
-                #             chance = 0.01
-                #         elif rate == "mid":
-                #             chance = 0.05
-                #         else:
-                #             chance = 0.1
-                # else:
-                #     if rate == "low":
-                #         chance = 0.03
-                #     elif rate == "mid":
-                #         chance = 0.08
-                #     else:
-                #         chance = 0.15
+                last_attempted_id = freewill_attempts.get(str(channel_id))
+                if last_attempted_id == last_message.id:
+                    if DEBUG:
+                        if is_dm:
+                            print(f"Skipping free will message to DM with user {user_id}")
+                        else:
+                            print(f"Skipping free will message to {guild.name}/{channel.name}")
+                    continue
                 chance = 1
                 if random.random() <= chance:
                     if DEBUG:
@@ -671,7 +672,7 @@ async def freewill_task():
                             print(f"Attempting free will message to {guild.name}/{channel.name}")
                     try:
                         await send_message(
-                            messages[0],
+                            last_message,
                             system_msg=FREEWILL_TIMEOUT
                         )
                     except Exception as e:
