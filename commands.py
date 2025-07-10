@@ -236,12 +236,16 @@ def setup(bot):
             user_count = len(metrics_data)
         except Exception:
             user_count = 0
-        oai_status = requests.get("https://status.openai.com/api/v2/status.json")
+        oai_status = requests.get("https://status.openai.com/api/v2/summary.json")
         if oai_status.status_code == 200:
             data = oai_status.json()
-            status = data["status"]["description"]
+            status = None
+            for component in data.get("components", []):
+                if component["id"] == "01JMXBRMFE0V9J9X2HY3SKX399":
+                    status = component["status"]
+                    break
         else:
-            status = "Offline"
+            status = "⚠️ no response"
         bot_cpu_usage = proc.cpu_percent(interval=0)
         message = (
             "### 🟢 AI Nerd 2 is online\n"
