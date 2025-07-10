@@ -1,7 +1,7 @@
 import os
 import json
 import time
-from config import FULL_MEMORY_FILE, USER_MEMORIES_FILE, CONTEXT_FILE
+from config import FULL_MEMORY_FILE, USER_MEMORIES_FILE, CONTEXT_FILE, MEMORY_LIMIT
 
 MEMORIES_FILE = FULL_MEMORY_FILE
 
@@ -20,6 +20,10 @@ def save_memory(summary: str, full_memory: str) -> int:
             data = json.load(f)
         except json.JSONDecodeError:
             data = {"summaries": [], "memories": []}
+        # Enforce limit of 50
+        if len(data["summaries"]) >= MEMORY_LIMIT:
+            data["summaries"].pop(0)
+            data["memories"].pop(0)
         data["summaries"].append(summary)
         data["memories"].append(full_memory)
         f.seek(0)
@@ -46,6 +50,10 @@ def save_user_memory(user_id: str, summary: str, full_memory: str) -> int:
             data = {}
         if user_key not in data:
             data[user_key] = {"summaries": [], "memories": []}
+        # Enforce limit of 50 per user
+        if len(data[user_key]["summaries"]) >= MEMORY_LIMIT:
+            data[user_key]["summaries"].pop(0)
+            data[user_key]["memories"].pop(0)
         data[user_key]["summaries"].append(summary)
         data[user_key]["memories"].append(full_memory)
         f.seek(0)
