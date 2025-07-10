@@ -9,8 +9,9 @@ import random
 import time
 import io
 import datetime
+import requests
 from openai_client import generate_response, generate_image
-from config import DEBUG, REASONING_MODEL, DAILY_QUIZ_FILE, RECENT_QUESTIONS_FILE
+from config import DEBUG, REASONING_MODEL, DAILY_QUIZ_FILE, RECENT_QUESTIONS_FILE, METRICS_FILE
 from nerdscore import get_nerdscore, increase_nerdscore, load_nerdscore
 
 def load_recent_questions():
@@ -225,32 +226,33 @@ def setup(bot):
     @bot.tree.command(name="status", description="Show system status")
     async def status(interaction: Interaction):
         await interaction.response.defer(thinking=True)
-        latency_ms = round(interaction.client.latency * 1000, 2)
-        cpu_usage = psutil.cpu_percent(interval=0.1)
-        mem = psutil.virtual_memory()
-        system_ram_usage = mem.percent
         proc = psutil.Process(os.getpid())
-        bot_ram_usage = proc.memory_info().rss / (1024 * 1024)
-        message = (
-            "### 🟢 AI Nerd 2 is online\n"
-            f"> Latency: {latency_ms} ms\n"
-            f"> System CPU Usage: {cpu_usage}%\n"
-            f"> System RAM Usage: {system_ram_usage}%\n"
-            f"> Bot CPU Usage: calculating...\n"
-            f"> Bot RAM Usage: {bot_ram_usage:.2f} MB"
-        )
-        response = await interaction.followup.send(message)
         proc.cpu_percent(interval=None)
-        bot_cpu_usage = await asyncio.to_thread(proc.cpu_percent, 5)
+        latency_ms = round(interaction.client.latency * 1000, 2)
+        bot_ram_usage = proc.memory_info().rss / (1024 * 1024)
+        try:
+            with open(config.METRICS_FILE, 'r', encoding='utf-8') as f:
+                metrics_data = json.load(f)
+            user_count = len(metrics_data)
+        except Exception:
+            user_count = 0
+        oai_status = requests.get("https://status.openai.com/api/v2/status.json")
+        if oai_status.status_code == 200:
+            data = oai_status.json()
+            status = data["status"]["description"]
+        else:
+            status = "Offline"
+        bot_cpu_usage = proc.cpu_percent(interval=0)
         message = (
             "### 🟢 AI Nerd 2 is online\n"
             f"> Latency: {latency_ms} ms\n"
-            f"> System CPU Usage: {cpu_usage}%\n"
-            f"> System RAM Usage: {system_ram_usage}%\n"
-            f"> Bot CPU Usage: {bot_cpu_usage}%\n"
-            f"> Bot RAM Usage: {bot_ram_usage:.2f} MB"
+            f"> CPU Usage: {bot_cpu_usage}%\n"
+            f"> RAM Usage: {bot_ram_usage:.2f} MB\n"
+            f"> AI Status: {status}\n"
+            f"> Server count: {len(bot.guilds)}\n"
+            f"> User count: {user_count}\n"
         )
-        await response.edit(content=message)
+        await interaction.followup.send(message)
 
     fun_group = app_commands.Group(name="fun", description="Games and fun commands")
     
