@@ -1,4 +1,4 @@
-# AI Nerd 2 version: Beta 1.7.2
+# AI Nerd 2 version: Beta 1.8.0
 
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,6 +11,7 @@ REASONING_MODEL = "o4-mini"
 DEBUG = False # I recommend enabling this while testing
 REACTIONS = True # This enables/disables message reactions!
 FREEWILL_MESSAGE_INTERVAL = 300  # Time in seconds between free will message checks (default: 5 minutes)
+MEMORY_LIMIT = 50
 
 # Files
 DATA_DIR = Path("data")
