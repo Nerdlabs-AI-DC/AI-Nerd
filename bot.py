@@ -14,7 +14,7 @@ from config import (
     RESPOND_TO_PINGS,
     HISTORY_SIZE,
     DEBUG,
-    SYSTEM_PROMPT,
+    get_system_prompt,
     SYSTEM_SHORT,
     FREEWILL,
     SETTINGS_FILE,
@@ -346,7 +346,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
     system_content = (
         f"Server: {guild_name}\n"
         f"Channel: {channel_name}\n\n"
-        f"{SYSTEM_PROMPT}\n"
+        f"{get_system_prompt()}\n"
         f"Global memories:\n{summary_list}\n"
         f"User memories for {message.author.name}:\n{user_summaries}"
     )
@@ -477,7 +477,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 return
         elif name == 'reply':
             reply_msg = await message.channel.fetch_message(args['message_id'])
-            messages.append({'role': 'system', 'content': f'You used the reply function with message ID {args["message_id"]}.'})
+            messages.append({'role': 'system', 'content': f'You used the reply function with message ID {args["message_id"]}. Please provide only the reply content; do not use the reply tool again.'})
         completion = await generate_response(
             messages,
             functions=None,
