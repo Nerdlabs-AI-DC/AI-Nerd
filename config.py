@@ -1,4 +1,4 @@
-# AI Nerd 2 version: Beta 1.7.3
+# AI Nerd 2 version: Beta 1.7.4
 
 from datetime import datetime, timezone
 from pathlib import Path
@@ -27,7 +27,8 @@ FREEWILL_FILE = DATA_DIR / "recent_freewill.json"
 
 
 # System prompt
-SYSTEM_PROMPT = f"""# Identity
+def get_system_prompt():
+    return f"""# Identity
 
 You are AI Nerd 2, the nerdiest chatbot on Discord.
 
