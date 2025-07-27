@@ -1,0 +1,5 @@
+discord
+psutil
+requests
+prometheus_client
+openai

@@ -278,7 +278,7 @@ def setup(bot):
             messages,
             functions=None,
             function_call=None,
-            user_id=interaction.user.id
+            channel_id=interaction.channel.id
         )
         msg_obj = completion.choices[0].message
         if DEBUG:
@@ -335,7 +335,7 @@ def setup(bot):
             messages,
             functions=tools,
             function_call={"name": "create_trivia"},
-            user_id=interaction.user.id
+            channel_id=interaction.channel.id
         )
         msg_obj = completion.choices[0].message
         args = json.loads(msg_obj.function_call.arguments or '{}')
@@ -582,7 +582,7 @@ Current board state: """ + str(self.board)}
             messages,
             functions=tools,
             function_call={"name": "create_trivia"},
-            user_id=interaction.user.id
+            channel_id=interaction.channel.id
         )
         msg_obj = completion.choices[0].message
         args = json.loads(msg_obj.function_call.arguments or '{}')
@@ -638,7 +638,7 @@ Current board state: """ + str(self.board)}
                         messages,
                         functions=tools,
                         function_call={"name": "create_trivia"},
-                        user_id=interaction.user.id
+                        channel_id=interaction.channel.id
                     )
                     msg_obj = completion.choices[0].message
                     args = json.loads(msg_obj.function_call.arguments or '{}')

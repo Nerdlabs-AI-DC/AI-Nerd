@@ -395,7 +395,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
             messages,
             functions=local_tools,
             function_call=functioncall,
-            user_id=message.author.id
+            channel_id=message.channel.id
         )
     else:
         async with message.channel.typing():
@@ -403,7 +403,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 messages,
                 functions=local_tools,
                 function_call=functioncall,
-                user_id=message.author.id
+                channel_id=message.channel.id
             )
     msg_obj = completion.choices[0].message
 
@@ -482,7 +482,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
             messages,
             functions=None,
             function_call=None,
-            user_id=message.author.id
+            channel_id=message.channel.id
         )
         msg_obj = completion.choices[0].message
 
