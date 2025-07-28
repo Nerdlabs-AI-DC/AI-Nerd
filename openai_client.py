@@ -50,7 +50,6 @@ async def generate_response(messages, functions=None, function_call=None, model=
                 user=str(channel_id)
             )
         )
-    print(completion.usage)
     return completion
 
 async def generate_image(prompt, model="gpt-image-1", filename="image.png"):

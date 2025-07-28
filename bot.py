@@ -217,7 +217,7 @@ async def on_ready():
 async def send_message(message, system_msg=None, force_response=False, functions=True):
     if not message.author.bot:
         user_id, channel_id = get_conversation_key(message)
-        conv_manager.process_message(user_id, channel_id, message.content)
+        await conv_manager.process_message(user_id, channel_id, message.content)
 
     # Condition checking & free will
     if message.author.id == bot.user.id and force_response == False:
@@ -546,7 +546,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
 async def on_message(message: discord.Message):
     old_channel_id = get_user_channel_switch(message)
     if old_channel_id:
-        final_summary = conv_manager.finalize(message.author.id, old_channel_id)
+        final_summary = await conv_manager.finalize(message.author.id, old_channel_id)
         if final_summary:
             full, short = final_summary
             save_memory(short, full)
@@ -720,9 +720,10 @@ async def conversation_finalizer_task():
     while not bot.is_closed():
         to_finalize = conv_manager.check_inactive()
         for user_id, channel_id in to_finalize:
-            final_summary = conv_manager.finalize(user_id, channel_id)
+            final_summary = await conv_manager.finalize(user_id, channel_id)
             if final_summary:
-                save_memory("Conversation summary", final_summary)
+                full, short = final_summary
+                save_memory(short, full)
         await asyncio.sleep(60)
 
 # Runs the bot
