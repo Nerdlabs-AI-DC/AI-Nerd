@@ -181,43 +181,43 @@ tools = [
     }
 ]
 
-# Conversation summary system
-conv_manager = ConversationManager(summary_func=simple_summary, buffer_size=10, inactivity=300)
-conversation_finalizer_task_started = False
+# Conversation summary system (unused for now)
+# conv_manager = ConversationManager(summary_func=simple_summary, buffer_size=10, inactivity=300)
+# conversation_finalizer_task_started = False
 
-def get_conversation_key(message):
-    user_id = message.author.id
-    channel_id = message.channel.id
-    return user_id, channel_id
+# def get_conversation_key(message):
+#     user_id = message.author.id
+#     channel_id = message.channel.id
+#     return user_id, channel_id
 
-def get_user_channel_switch(message):
-    user_id = message.author.id
-    channel_id = message.channel.id
-    last_channel_id, _ = get_channel_by_user(user_id)
-    if last_channel_id and last_channel_id != channel_id:
-        return last_channel_id
-    return None
+# def get_user_channel_switch(message):
+#     user_id = message.author.id
+#     channel_id = message.channel.id
+#     last_channel_id, _ = get_channel_by_user(user_id)
+#     if last_channel_id and last_channel_id != channel_id:
+#         return last_channel_id
+#     return None
 
 # Bot initialization
 @bot.event
 async def on_ready():
-    global chatrevive_task_started, conversation_finalizer_task_started
+    # global chatrevive_task_started, conversation_finalizer_task_started
     init_memory_files()
     await bot.tree.sync()
     print(f"Ready as {bot.user}")
-    if not chatrevive_task_started:
-        asyncio.create_task(chatrevive_task())
-        asyncio.create_task(freewill_task())
-        chatrevive_task_started = True
-    if not conversation_finalizer_task_started:
-        asyncio.create_task(conversation_finalizer_task())
-        conversation_finalizer_task_started = True
+    # if not chatrevive_task_started:
+    #     asyncio.create_task(chatrevive_task())
+    #     asyncio.create_task(freewill_task())
+    #     chatrevive_task_started = True
+    # if not conversation_finalizer_task_started:
+    #     asyncio.create_task(conversation_finalizer_task())
+    #     conversation_finalizer_task_started = True
 
 # Main message handler
 async def send_message(message, system_msg=None, force_response=False, functions=True):
-    if not message.author.bot:
-        user_id, channel_id = get_conversation_key(message)
-        await conv_manager.process_message(user_id, channel_id, message.content)
+    # if not message.author.bot:
+    #     user_id, channel_id = get_conversation_key(message)
+    #     await conv_manager.process_message(user_id, channel_id, message.content)
 
     # Condition checking & free will
     if message.author.id == bot.user.id and force_response == False:
@@ -544,12 +544,12 @@ async def send_message(message, system_msg=None, force_response=False, functions
 # Message response
 @bot.event
 async def on_message(message: discord.Message):
-    old_channel_id = get_user_channel_switch(message)
-    if old_channel_id:
-        final_summary = await conv_manager.finalize(message.author.id, old_channel_id)
-        if final_summary:
-            full, short = final_summary
-            save_memory(short, full)
+    # old_channel_id = get_user_channel_switch(message)
+    # if old_channel_id:
+    #     final_summary = await conv_manager.finalize(message.author.id, old_channel_id)
+    #     if final_summary:
+    #         full, short = final_summary
+    #         save_memory(short, full)
     await send_message(message)
 
 # Server join message
@@ -715,16 +715,16 @@ async def freewill_task():
         await asyncio.sleep(config.FREEWILL_MESSAGE_INTERVAL)
 
 # Background task to finalize conversations after inactivity
-async def conversation_finalizer_task():
-    await bot.wait_until_ready()
-    while not bot.is_closed():
-        to_finalize = conv_manager.check_inactive()
-        for user_id, channel_id in to_finalize:
-            final_summary = await conv_manager.finalize(user_id, channel_id)
-            if final_summary:
-                full, short = final_summary
-                save_memory(short, full)
-        await asyncio.sleep(60)
+# async def conversation_finalizer_task():
+#     await bot.wait_until_ready()
+#     while not bot.is_closed():
+#         to_finalize = conv_manager.check_inactive()
+#         for user_id, channel_id in to_finalize:
+#             final_summary = await conv_manager.finalize(user_id, channel_id)
+#             if final_summary:
+#                 full, short = final_summary
+#                 save_memory(short, full)
+#         await asyncio.sleep(60)
 
 # Runs the bot
 if __name__ == '__main__':
