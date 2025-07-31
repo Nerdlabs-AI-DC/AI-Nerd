@@ -1,3 +1,5 @@
+# i didn't finish this yet and its not being used
+
 import time
 import json
 from openai_client import generate_response
