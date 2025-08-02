@@ -22,7 +22,7 @@ async def generate_response(messages, functions=None, function_call=None, model=
                 function_call=function_call,
                 reasoning_effort="low",
                 max_completion_tokens=2000,
-                user=str(channel_id)
+                prompt_cache_key=str(channel_id)
             )
         )
     elif not channel_id:
@@ -47,7 +47,7 @@ async def generate_response(messages, functions=None, function_call=None, model=
                 functions=functions,
                 function_call=function_call,
                 max_completion_tokens=2000,
-                user=str(channel_id)
+                prompt_cache_key=str(channel_id)
             )
         )
     return completion
