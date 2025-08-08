@@ -2,7 +2,7 @@ import asyncio
 import functools
 import base64
 from openai import OpenAI
-from config import MODEL, REASONING_MODEL, DEBUG
+from config import MODEL, DEBUG
 from credentials import openai_key
 
 _oai = OpenAI(api_key=openai_key)
@@ -11,7 +11,7 @@ async def generate_response(messages, functions=None, function_call=None, model=
     loop = asyncio.get_event_loop()
     if DEBUG:
         print(f"Generating response with model: {model} and channel id: {channel_id}")
-    if model == REASONING_MODEL:
+    if channel_id:
         completion = await loop.run_in_executor(
             None,
             functools.partial(
@@ -20,21 +20,8 @@ async def generate_response(messages, functions=None, function_call=None, model=
                 messages=messages,
                 functions=functions,
                 function_call=function_call,
-                reasoning_effort="low",
                 max_completion_tokens=2000,
                 prompt_cache_key=str(channel_id)
-            )
-        )
-    elif not channel_id:
-        completion = await loop.run_in_executor(
-            None,
-            functools.partial(
-                _oai.chat.completions.create,
-                model=model,
-                messages=messages,
-                functions=functions,
-                function_call=function_call,
-                max_completion_tokens=2000
             )
         )
     else:
@@ -46,8 +33,7 @@ async def generate_response(messages, functions=None, function_call=None, model=
                 messages=messages,
                 functions=functions,
                 function_call=function_call,
-                max_completion_tokens=2000,
-                prompt_cache_key=str(channel_id)
+                max_completion_tokens=2000
             )
         )
     return completion
