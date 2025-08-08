@@ -6,8 +6,7 @@ from pathlib import Path
 # Main settings
 RESPOND_TO_PINGS = True
 HISTORY_SIZE = 10
-MODEL = "gpt-4.1-mini"
-REASONING_MODEL = "o4-mini"
+MODEL = "gpt-5-mini"
 DEBUG = False # I recommend enabling this while testing
 REACTIONS = True # This enables/disables message reactions!
 FREEWILL_MESSAGE_INTERVAL = 600  # Time in seconds between free will message checks (default: 10 minutes)

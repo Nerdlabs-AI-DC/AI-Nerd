@@ -11,7 +11,7 @@ import io
 import datetime
 import requests
 from openai_client import generate_response, generate_image
-from config import DEBUG, REASONING_MODEL, DAILY_QUIZ_FILE, RECENT_QUESTIONS_FILE, METRICS_FILE
+from config import DEBUG, DAILY_QUIZ_FILE, RECENT_QUESTIONS_FILE, METRICS_FILE
 from nerdscore import get_nerdscore, increase_nerdscore, load_nerdscore
 
 def load_recent_questions():
@@ -468,7 +468,6 @@ Current board state: """ + str(self.board)}
                     messages,
                     functions=None,
                     function_call=None,
-                    model=REASONING_MODEL
                 )
                 msg_obj = completion.choices[0].message
                 if DEBUG:
