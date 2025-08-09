@@ -333,14 +333,14 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 replied_content = replied_message.content
             except:
                 replied_content = None
+            content.append({'type': 'text', 'text': f"Display name: {msg.author.display_name}, Username: {msg.author.name}"})
             if replied_content:
                 content.append({'type': 'text', 'text': f"Replying to {replied_message.author.display_name}: {replied_content}"})
             content.append({'type': 'text', 'text': f"Message ID: {msg.id}"})
-            content.append({'type': 'text', 'text': f"{msg.author.display_name}: {msg.content}"})
+            content.append({'type': 'text', 'text': f"{msg.content}"})
             for attach in msg.attachments:
                 if attach.content_type and attach.content_type.startswith('image/'):
                     content.append({'type': 'image_url', 'image_url': {'url': attach.url}})
-        history.append({'role': role, 'content': content, 'name': re.sub(r'[\s<|\\/>]', '_', msg.author.name)})
         if len(history) >= HISTORY_SIZE:
             break
     history.reverse()
@@ -383,10 +383,11 @@ async def send_message(message, system_msg=None, force_response=False, functions
     except:
         replied_content = None
     if message.content:
+        user_content.append({'type': 'text', 'text': f"Display name: {message.author.display_name}, Username: {message.author.name}"})
         if replied_content:
             user_content.append({'type': 'text', 'text': f"Replying to {replied_message.author.display_name}: {replied_content}"})
         user_content.append({'type': 'text', 'text': f"Message ID: {message.id}"})
-        user_content.append({'type': 'text', 'text': f"{message.author.display_name}: {message.content}"})
+        user_content.append({'type': 'text', 'text': f"{message.content}"})
     for attach in message.attachments:
         if attach.content_type and attach.content_type.startswith('image/'):
             user_content.append({'type': 'image_url', 'image_url': {'url': attach.url}})
@@ -397,8 +398,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
 
     messages = [
     {'role': 'system', 'content': system},
-    *history,
-    {'role': 'user', 'content': user_content, 'name': re.sub(r'[\s<|\\/>]', '_', message.author.name)} # Added regex shit so openai doesn't yell at me
+    *history
     ]
 
     if system_msg:
@@ -416,7 +416,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
         print(json.dumps(messages, ensure_ascii=False, indent=2))
 
     if freewill:
-        completion = await generate_response(
+        response = await generate_response(
             messages,
             functions=local_tools,
             function_call=functioncall,
@@ -424,13 +424,14 @@ async def send_message(message, system_msg=None, force_response=False, functions
         )
     else:
         async with message.channel.typing():
-            completion = await generate_response(
+            response = await generate_response(
                 messages,
                 functions=local_tools,
                 function_call=functioncall,
                 channel_id=message.channel.id
             )
-    msg_obj = completion.choices[0].message
+    # New API: response.output[0].content[0].text, function_call: response.output[0].function_call
+    msg_obj = response.output[0]
 
     if system_msg == FREEWILL_TIMEOUT:
         try:
@@ -445,9 +446,10 @@ async def send_message(message, system_msg=None, force_response=False, functions
     reply_msg = None
 
     # Functions
-    if msg_obj.function_call is not None:
-        name = msg_obj.function_call.name
-        args = json.loads(msg_obj.function_call.arguments or '{}')
+    if hasattr(msg_obj, 'function_call') and msg_obj.function_call is not None:
+        # New API: function_call is on response.output[0].function_call
+        name = msg_obj.function_call['name']
+        args = json.loads(msg_obj.function_call.get('arguments') or '{}')
         if DEBUG:
             print(f"Function {name} called.")
         if name == 'save_memory':
@@ -503,19 +505,21 @@ async def send_message(message, system_msg=None, force_response=False, functions
         elif name == 'reply':
             reply_msg = await message.channel.fetch_message(args['message_id'])
             messages.append({'role': 'system', 'content': f'You used the reply function with message ID {args["message_id"]}. Please provide only the reply content; do not use the reply tool again.'})
-        completion = await generate_response(
+        response = await generate_response(
             messages,
             functions=None,
             function_call=None,
             channel_id=message.channel.id
         )
-        msg_obj = completion.choices[0].message
+        msg_obj = response.output[0]
 
     # Sending response
     if DEBUG:
         print('--- RESPONSE ---')
-        print(msg_obj.content)
-    content = await replace_role_mentions(msg_obj.content, message.guild) if message.guild and not force_response else msg_obj.content
+        # New API: msg_obj.content is a list of dicts with type/text
+        print(msg_obj.content[0]['text'] if msg_obj.content and isinstance(msg_obj.content, list) and 'text' in msg_obj.content[0] else msg_obj)
+    # New API: msg_obj.content is a list of dicts with type/text
+    content = await replace_role_mentions(msg_obj.content[0]['text'], message.guild) if message.guild and not force_response else msg_obj.content[0]['text']
     if reply_msg:
         await reply_msg.reply(content, mention_author=False)
     elif is_dm or is_allowed or freewill or force_response:
@@ -525,8 +529,8 @@ async def send_message(message, system_msg=None, force_response=False, functions
     messages_sent.inc()
 
     # super-duper epic reactions yay
-    if config.REACTIONS and msg_obj.function_call and msg_obj.function_call.name == 'add_reaction':
-        args = json.loads(msg_obj.function_call.arguments or '{}')
+    if config.REACTIONS and hasattr(msg_obj, 'function_call') and msg_obj.function_call and msg_obj.function_call['name'] == 'add_reaction':
+        args = json.loads(msg_obj.function_call.get('arguments') or '{}')
         if args.get('target') == 'self' and isinstance(args.get('emojis'), list) and len(args.get('emojis')) > 0:
             last_message = None
             async for msg in message.channel.history(limit=1):
