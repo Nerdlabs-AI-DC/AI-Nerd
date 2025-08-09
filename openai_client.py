@@ -15,12 +15,12 @@ async def generate_response(messages, functions=None, function_call=None, model=
         completion = await loop.run_in_executor(
             None,
             functools.partial(
-                _oai.chat.completions.create,
+                _oai.responses.create,
                 model=model,
-                messages=messages,
-                functions=functions,
-                function_call=function_call,
-                max_completion_tokens=2000,
+                input=messages,
+                tools=functions,
+                tool_choice=function_call,
+                max_output_tokens=2000,
                 prompt_cache_key=str(channel_id)
             )
         )
@@ -28,12 +28,12 @@ async def generate_response(messages, functions=None, function_call=None, model=
         completion = await loop.run_in_executor(
             None,
             functools.partial(
-                _oai.chat.completions.create,
+                _oai.responses.create,
                 model=model,
-                messages=messages,
-                functions=functions,
-                function_call=function_call,
-                max_completion_tokens=2000
+                input=messages,
+                tools=functions,
+                tool_choice=function_call,
+                max_output_tokens=2000
             )
         )
     return completion
