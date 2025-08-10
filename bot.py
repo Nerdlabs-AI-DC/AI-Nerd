@@ -334,13 +334,14 @@ async def send_message(message, system_msg=None, force_response=False, functions
             except:
                 replied_content = None
             if replied_content:
-                content.append({'type': 'text', 'text': f"Replying to {replied_message.author.display_name}: {replied_content}"})
-            content.append({'type': 'text', 'text': f"Message ID: {msg.id}"})
-            content.append({'type': 'text', 'text': f"{msg.author.display_name}: {msg.content}"})
+                content.append({'type': 'input_text', 'text': f"Replying to {replied_message.author.display_name}: {replied_content}"})
+            content.append({'type': 'input_text', 'text': f"Message ID: {msg.id}"})
+            content.append({'type': 'input_text', 'text': f"Display name: {msg.author.display_name}, Username: {msg.author.name}"})
+            content.append({'type': 'input_text', 'text': f"Message content: {msg.content}"})
             for attach in msg.attachments:
                 if attach.content_type and attach.content_type.startswith('image/'):
-                    content.append({'type': 'image_url', 'image_url': {'url': attach.url}})
-        history.append({'role': role, 'content': content, 'name': re.sub(r'[\s<|\\/>]', '_', msg.author.name)})
+                    content.append({'type': 'input_image', 'image_url': {'url': attach.url}})
+        history.append({'role': role, 'content': content})
         if len(history) >= HISTORY_SIZE:
             break
     history.reverse()
@@ -384,12 +385,13 @@ async def send_message(message, system_msg=None, force_response=False, functions
         replied_content = None
     if message.content:
         if replied_content:
-            user_content.append({'type': 'text', 'text': f"Replying to {replied_message.author.display_name}: {replied_content}"})
-        user_content.append({'type': 'text', 'text': f"Message ID: {message.id}"})
-        user_content.append({'type': 'text', 'text': f"{message.author.display_name}: {message.content}"})
+            user_content.append({'type': 'input_text', 'text': f"Replying to {replied_message.author.display_name}: {replied_content}"})
+        user_content.append({'type': 'input_text', 'text': f"Message ID: {message.id}"})
+        user_content.append({'type': 'input_text', 'text': f"Display name: {message.author.display_name}, Username: {message.author.name}"})
+        user_content.append({'type': 'input_text', 'text': f"Message content: {message.content}"})
     for attach in message.attachments:
         if attach.content_type and attach.content_type.startswith('image/'):
-            user_content.append({'type': 'image_url', 'image_url': {'url': attach.url}})
+            user_content.append({'type': 'input_image', 'image_url': {'url': attach.url}})
         
     system = system_content
     if freewill:
@@ -398,7 +400,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
     messages = [
     {'role': 'system', 'content': system},
     *history,
-    {'role': 'user', 'content': user_content, 'name': re.sub(r'[\s<|\\/>]', '_', message.author.name)} # Added regex shit so openai doesn't yell at me
+    {'role': 'user', 'content': user_content}
     ]
 
     if system_msg:
@@ -415,22 +417,30 @@ async def send_message(message, system_msg=None, force_response=False, functions
         print('--- MESSAGE REQUEST ---')
         print(json.dumps(messages, ensure_ascii=False, indent=2))
 
+    # Migration: Use responses API (tools/tool_choice instead of functions/function_call)
     if freewill:
         completion = await generate_response(
             messages,
-            functions=local_tools,
-            function_call=functioncall,
+            tools=local_tools,
+            tool_choice=functioncall,
             channel_id=message.channel.id
         )
     else:
         async with message.channel.typing():
             completion = await generate_response(
                 messages,
-                functions=local_tools,
-                function_call=functioncall,
+                tools=local_tools,
+                tool_choice=functioncall,
                 channel_id=message.channel.id
             )
-    msg_obj = completion.choices[0].message
+    # responses API: output is in completion.output_text, tool calls in completion.tool_calls
+    class MsgObj:
+        def __init__(self, content, tool_calls=None):
+            self.content = content
+            self.function_call = None
+            if tool_calls:
+                self.function_call = tool_calls[0] if tool_calls else None
+    msg_obj = MsgObj(completion.output_text, getattr(completion, 'tool_calls', None))
 
     if system_msg == FREEWILL_TIMEOUT:
         try:
@@ -444,30 +454,33 @@ async def send_message(message, system_msg=None, force_response=False, functions
 
     reply_msg = None
 
-    # Functions
-    if msg_obj.function_call is not None:
-        name = msg_obj.function_call.name
-        args = json.loads(msg_obj.function_call.arguments or '{}')
+    # Tool/function call handling for OpenAI responses API
+    # If a tool_call is present, run the tool, append the result, and re-call OpenAI for the final message
+    if getattr(completion, 'tool_calls', None):
+        tool_call = completion.tool_calls[0]
+        name = tool_call.name
+        args = json.loads(tool_call.arguments or '{}')
         if DEBUG:
             print(f"Function {name} called.")
+        tool_result = None
         if name == 'save_memory':
             if 'user_memory' in args and args['user_memory']:
                 idx = save_user_memory(message.author.id, args['summary'], args['full_memory'])
-                messages.append({'role': 'system', 'content': f'User memory saved. Memory index for user {message.author.name}: {idx}.'})
+                tool_result = f'User memory saved. Memory index for user {message.author.name}: {idx}.'
             else:
                 idx = save_memory(args['summary'], args['full_memory'])
-                messages.append({'role': 'system', 'content': f'You just saved a new memory. Memory index: {idx}.'})
+                tool_result = f'You just saved a new memory. Memory index: {idx}.'
         elif name == 'get_memory_detail':
             if 'user_memory' in args and args['user_memory']:
                 detail = get_user_memory_detail(message.author.id, int(args['index']))
-                messages.append({'role': 'system', 'content': f'Recalling user memory for {message.author.name}: {detail}.'})
+                tool_result = f'Recalling user memory for {message.author.name}: {detail}.'
             else:
                 detail = get_memory_detail(int(args['index']))
-                messages.append({'role': 'system', 'content': f'You are recalling a stored memory. Memory content: {detail}.'})
+                tool_result = f'You are recalling a stored memory. Memory content: {detail}.'
         elif name == 'set_status':
             new_status = args['status']
             await bot.change_presence(activity=discord.CustomActivity(new_status))
-            messages.append({'role': 'system', 'content': f'You changed your status to "{new_status}".'})
+            tool_result = f'You changed your status to "{new_status}".'
         elif name == 'cancel_response':
             return
         elif name == 'send_dm':
@@ -475,14 +488,14 @@ async def send_message(message, system_msg=None, force_response=False, functions
             user = message.author
             try:
                 await user.send(dmmessage)
-                messages.append({'role': 'system', 'content': f'DM sent to {user.name}.'})
+                tool_result = f'DM sent to {user.name}.'
             except discord.Forbidden:
-                messages.append({'role': 'system', 'content': 'Something went wrong while trying to send a DM.'})
+                tool_result = 'Something went wrong while trying to send a DM.'
             if args['send_followup'] == False:
                 return
         elif name == 'give_nerdscore':
             increase_nerdscore(message.author.id, 1)
-            messages.append({'role': 'system', 'content': f'You gave {message.author.name} 1 nerdscore.'})
+            tool_result = f'You gave {message.author.name} 1 nerdscore.'
         elif name == 'add_reaction' and config.REACTIONS:
             if isinstance(args.get('emojis'), list) and args.get('target') == 'user':
                 for emoji in args.get('emojis'):
@@ -491,25 +504,32 @@ async def send_message(message, system_msg=None, force_response=False, functions
                             print(f"Adding reaction {emoji} to user message")
                         await message.add_reaction(emoji)
                         await asyncio.sleep(0.5)
-                        messages.append({'role': 'system', 'content': f'You reacted to {message.author.name}\'s message with {emoji}.'})
+                        tool_result = f'You reacted to {message.author.name}\'s message with {emoji}.'
                     except Exception as e:
                         if DEBUG:
                             print(f"Error adding reaction: {e}")
-                        messages.append({'role': 'system', 'content': f'Failed to add reaction {emoji}: {str(e)}'})
+                        tool_result = f'Failed to add reaction {emoji}: {str(e)}'
             elif isinstance(args.get('emojis'), list) and args.get('target') == 'self':
-                messages.append({'role': 'system', 'content': f'You will react to your own message with emoji(s): {", ".join(args.get("emojis"))}'})
+                tool_result = f'You will react to your own message with emoji(s): {", ".join(args.get("emojis"))}'
             if args['send_followup'] == False:
                 return
         elif name == 'reply':
             reply_msg = await message.channel.fetch_message(args['message_id'])
-            messages.append({'role': 'system', 'content': f'You used the reply function with message ID {args["message_id"]}. Please provide only the reply content; do not use the reply tool again.'})
-        completion = await generate_response(
+            tool_result = f'You used the reply function with message ID {args["message_id"]}. Please provide only the reply content; do not use the reply tool again.'
+        # Append the tool result as a function response message
+        messages.append({
+            'role': 'function',
+            'name': name,
+            'content': tool_result or ''
+        })
+        # Call OpenAI again to get the final message
+        completion2 = await generate_response(
             messages,
-            functions=None,
-            function_call=None,
+            tools=None,
+            tool_choice=None,
             channel_id=message.channel.id
         )
-        msg_obj = completion.choices[0].message
+        msg_obj = MsgObj(completion2.output_text, getattr(completion2, 'tool_calls', None))
 
     # Sending response
     if DEBUG:
