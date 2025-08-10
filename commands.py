@@ -276,11 +276,14 @@ def setup(bot):
             print(json.dumps(messages, ensure_ascii=False, indent=2))
         completion = await generate_response(
             messages,
-            functions=None,
-            function_call=None,
+            tools=None,
+            tool_choice=None,
             channel_id=interaction.channel.id
         )
-        msg_obj = completion.choices[0].message
+        class MsgObj:
+            def __init__(self, content):
+                self.content = content
+        msg_obj = MsgObj(completion.output_text)
         if DEBUG:
             print('--- RESPONSE ---')
             print(msg_obj.content)
@@ -333,12 +336,12 @@ def setup(bot):
             print(json.dumps(messages, ensure_ascii=False, indent=2))
         completion = await generate_response(
             messages,
-            functions=tools,
-            function_call={"name": "create_trivia"},
+            tools=tools,
+            tool_choice={"name": "create_trivia"},
             channel_id=interaction.channel.id
         )
-        msg_obj = completion.choices[0].message
-        args = json.loads(msg_obj.function_call.arguments or '{}')
+        tool_call = completion.tool_calls[0] if getattr(completion, 'tool_calls', None) else None
+        args = json.loads(tool_call.arguments or '{}') if tool_call else {}
         
         user_recent.append(args["question"])
         if len(user_recent) > 50:
@@ -395,7 +398,7 @@ def setup(bot):
             view.add_item(button)
         if DEBUG:
             print('--- RESPONSE ---')
-            print(msg_obj)
+            print(tool_call if tool_call else completion.output_text)
         await interaction.followup.send(f"### ❔ Trivia\nGenre: {genre}\nDifficulty: {difficulty}\n> {args['question']}", view=view)
         question_time = time.monotonic()
 
