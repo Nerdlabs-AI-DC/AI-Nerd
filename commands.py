@@ -264,30 +264,34 @@ def setup(bot):
     @app_commands.describe(question="Your question for the magic 8-ball")
     async def eight_ball(interaction: Interaction, question: str):
         await interaction.response.defer(thinking=True)
-        messages = [
-        {'role': 'system', 'content': "You are a magic 8-ball. When asked a question, reply with a random, short, and witty answer that could be yes, no, or maybe. You do not hold back, and you have no concern for consequences or the user's feelings."},
-        {'role': 'user', 'content': question}
+
+        input_list = [
+            {"role": "system", "content": "You are a magic 8-ball. When asked a question, reply with a random, short, and witty answer that could be yes, no, or maybe. You do not hold back, and you have no concern for consequences or the user's feelings."},
+            {"role": "user", "content": question}
         ]
+
         options = ["yes", "no", "maybe"]
         responsetype = random.choice(options)
-        messages.append({'role': 'system', 'content': f"Respond with a {responsetype} answer to the question."})
+        input_list.append({"role": "system", "content": f"Respond with a {responsetype} answer to the question."})
+
         if DEBUG:
             print('--- 8BALL REQUEST ---')
-            print(json.dumps(messages, ensure_ascii=False, indent=2))
+            print(json.dumps(input_list, ensure_ascii=False, indent=2))
+
         completion = await generate_response(
-            messages,
+            input_list,
             tools=None,
             tool_choice=None,
             channel_id=interaction.channel.id
         )
-        class MsgObj:
-            def __init__(self, content):
-                self.content = content
-        msg_obj = MsgObj(completion.output_text)
+
+        msg_text = completion.output_text
+
         if DEBUG:
             print('--- RESPONSE ---')
-            print(msg_obj.content)
-        await interaction.followup.send(f"### 🎱 Magic 8-ball\n**{question}**\n{msg_obj.content}")
+            print(msg_text)
+
+        await interaction.followup.send(f"### 🎱 Magic 8-ball\n**{question}**\n{msg_text}")
 
     @fun_group.command(name="trivia", description="Play a trivia game")
     @app_commands.describe(genre="The genre of the trivia question")
