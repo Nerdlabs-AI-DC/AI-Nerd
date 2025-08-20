@@ -417,7 +417,6 @@ async def send_message(message, system_msg=None, force_response=False, functions
         print('--- MESSAGE REQUEST ---')
         print(json.dumps(messages, ensure_ascii=False, indent=2))
 
-    # Migration: Use responses API (tools/tool_choice instead of functions/function_call)
     if freewill:
         completion = await generate_response(
             messages,
@@ -433,7 +432,6 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 tool_choice=functioncall,
                 channel_id=message.channel.id
             )
-    # responses API: output is in completion.output_text, tool calls in completion.tool_calls
     class MsgObj:
         def __init__(self, content, tool_calls=None):
             self.content = content
@@ -454,82 +452,88 @@ async def send_message(message, system_msg=None, force_response=False, functions
 
     reply_msg = None
 
-    # Tool/function call handling for OpenAI responses API
-    # If a tool_call is present, run the tool, append the result, and re-call OpenAI for the final message
-    if getattr(completion, 'tool_calls', None):
-        tool_call = completion.tool_calls[0]
-        name = tool_call.name
-        args = json.loads(tool_call.arguments or '{}')
-        if DEBUG:
-            print(f"Function {name} called.")
-        tool_result = None
-        if name == 'save_memory':
-            if 'user_memory' in args and args['user_memory']:
-                idx = save_user_memory(message.author.id, args['summary'], args['full_memory'])
-                tool_result = f'User memory saved. Memory index for user {message.author.name}: {idx}.'
-            else:
-                idx = save_memory(args['summary'], args['full_memory'])
-                tool_result = f'You just saved a new memory. Memory index: {idx}.'
-        elif name == 'get_memory_detail':
-            if 'user_memory' in args and args['user_memory']:
-                detail = get_user_memory_detail(message.author.id, int(args['index']))
-                tool_result = f'Recalling user memory for {message.author.name}: {detail}.'
-            else:
-                detail = get_memory_detail(int(args['index']))
-                tool_result = f'You are recalling a stored memory. Memory content: {detail}.'
-        elif name == 'set_status':
-            new_status = args['status']
-            await bot.change_presence(activity=discord.CustomActivity(new_status))
-            tool_result = f'You changed your status to "{new_status}".'
-        elif name == 'cancel_response':
-            return
-        elif name == 'send_dm':
-            dmmessage = args['message']
-            user = message.author
-            try:
-                await user.send(dmmessage)
-                tool_result = f'DM sent to {user.name}.'
-            except discord.Forbidden:
-                tool_result = 'Something went wrong while trying to send a DM.'
-            if args['send_followup'] == False:
+# Function call handling
+    messages += completion.output
+    for item in completion.output:
+        if item.type == "function_call":
+            name = item.name
+            args = json.loads(item.arguments or "{}")
+            call_id = item.call_id
+            tool_result = None
+
+            if DEBUG:
+                print(f"Function {name} called with args {args}")
+
+            if name == 'save_memory':
+                if args.get('user_memory'):
+                    idx = save_user_memory(message.author.id, args['summary'], args['full_memory'])
+                    tool_result = f'User memory saved. Index {idx}.'
+                else:
+                    idx = save_memory(args['summary'], args['full_memory'])
+                    tool_result = f'Global memory saved. Index {idx}.'
+
+            elif name == 'get_memory_detail':
+                if args.get('user_memory'):
+                    detail = get_user_memory_detail(message.author.id, int(args['index']))
+                    tool_result = f'User memory: {detail}'
+                else:
+                    detail = get_memory_detail(int(args['index']))
+                    tool_result = f'Memory: {detail}'
+
+            elif name == 'set_status':
+                new_status = args['status']
+                await bot.change_presence(activity=discord.CustomActivity(new_status))
+                tool_result = f'Status set to {new_status}'
+
+            elif name == 'cancel_response':
                 return
-        elif name == 'give_nerdscore':
-            increase_nerdscore(message.author.id, 1)
-            tool_result = f'You gave {message.author.name} 1 nerdscore.'
-        elif name == 'add_reaction' and config.REACTIONS:
-            if isinstance(args.get('emojis'), list) and args.get('target') == 'user':
-                for emoji in args.get('emojis'):
-                    try:
-                        if DEBUG:
-                            print(f"Adding reaction {emoji} to user message")
-                        await message.add_reaction(emoji)
-                        await asyncio.sleep(0.5)
-                        tool_result = f'You reacted to {message.author.name}\'s message with {emoji}.'
-                    except Exception as e:
-                        if DEBUG:
-                            print(f"Error adding reaction: {e}")
-                        tool_result = f'Failed to add reaction {emoji}: {str(e)}'
-            elif isinstance(args.get('emojis'), list) and args.get('target') == 'self':
-                tool_result = f'You will react to your own message with emoji(s): {", ".join(args.get("emojis"))}'
-            if args['send_followup'] == False:
-                return
-        elif name == 'reply':
-            reply_msg = await message.channel.fetch_message(args['message_id'])
-            tool_result = f'You used the reply function with message ID {args["message_id"]}. Please provide only the reply content; do not use the reply tool again.'
-        # Append the tool result as a function response message
-        messages.append({
-            'role': 'function',
-            'name': name,
-            'content': tool_result or ''
-        })
-        # Call OpenAI again to get the final message
-        completion2 = await generate_response(
-            messages,
-            tools=None,
-            tool_choice=None,
-            channel_id=message.channel.id
-        )
-        msg_obj = MsgObj(completion2.output_text, getattr(completion2, 'tool_calls', None))
+
+            elif name == 'send_dm':
+                dmmessage = args['message']
+                user = message.author
+                try:
+                    await user.send(dmmessage)
+                    tool_result = f"DM sent to {user.name}"
+                except discord.Forbidden:
+                    tool_result = "Failed to send DM"
+                if args.get("send_followup") is False:
+                    return
+
+            elif name == 'give_nerdscore':
+                increase_nerdscore(message.author.id, 1)
+                tool_result = f"Nerdscore +1 for {message.author.name}"
+
+            elif name == 'add_reaction' and config.REACTIONS:
+                if isinstance(args.get('emojis'), list) and args.get('target') == 'user':
+                    for emoji in args['emojis']:
+                        try:
+                            await message.add_reaction(emoji)
+                            await asyncio.sleep(0.5)
+                        except Exception as e:
+                            if DEBUG:
+                                print(f"Error adding reaction: {e}")
+                    tool_result = f"Reactions {args['emojis']} added to user message"
+                elif isinstance(args.get('emojis'), list) and args.get('target') == 'self':
+                    tool_result = f"Would react to own message with {args['emojis']}"
+                if args.get("send_followup") is False:
+                    return
+
+            elif name == 'reply':
+                reply_msg = await message.channel.fetch_message(args['message_id'])
+                tool_result = f"Reply used on {args['message_id']} (content not auto-sent)."
+
+            messages.append({
+                "type": "function_call_output",
+                "call_id": call_id,
+                "output": json.dumps({"result": tool_result})
+            })
+            completion2 = await generate_response(
+                messages,
+                tools=None,
+                tool_choice=None,
+                channel_id=message.channel.id
+            )
+            msg_obj = MsgObj(completion2.output_text, getattr(completion2, 'tool_calls', None))
 
     # Sending response
     if DEBUG:
