@@ -13,12 +13,14 @@ def init_memory_files():
         with open(USER_MEMORIES_FILE, 'w', encoding='utf-8') as f:
             json.dump({}, f)
 
+
 def save_memory(summary: str, full_memory: str) -> int:
     with open(MEMORIES_FILE, 'r+', encoding='utf-8') as f:
         try:
             data = json.load(f)
         except json.JSONDecodeError:
             data = {"summaries": [], "memories": []}
+        # Enforce limit of 50
         if len(data["summaries"]) >= MEMORY_LIMIT:
             data["summaries"].pop(0)
             data["memories"].pop(0)
@@ -29,6 +31,7 @@ def save_memory(summary: str, full_memory: str) -> int:
         f.truncate()
     return len(data["summaries"])
 
+
 def get_memory_detail(index: int) -> str:
     with open(MEMORIES_FILE, 'r', encoding='utf-8') as f:
         data = json.load(f)
@@ -36,6 +39,7 @@ def get_memory_detail(index: int) -> str:
     if 1 <= index <= len(memories):
         return memories[index - 1]
     return ""
+
 
 def save_user_memory(user_id: str, summary: str, full_memory: str) -> int:
     user_key = str(user_id)
@@ -46,6 +50,7 @@ def save_user_memory(user_id: str, summary: str, full_memory: str) -> int:
             data = {}
         if user_key not in data:
             data[user_key] = {"summaries": [], "memories": []}
+        # Enforce limit of 50 per user
         if len(data[user_key]["summaries"]) >= MEMORY_LIMIT:
             data[user_key]["summaries"].pop(0)
             data[user_key]["memories"].pop(0)
@@ -56,6 +61,7 @@ def save_user_memory(user_id: str, summary: str, full_memory: str) -> int:
         f.truncate()
     return len(data[user_key]["summaries"])
 
+
 def get_user_memory_detail(user_id: str, index: int) -> str:
     user_key = str(user_id)
     with open(USER_MEMORIES_FILE, 'r', encoding='utf-8') as f:
@@ -65,6 +71,7 @@ def get_user_memory_detail(user_id: str, index: int) -> str:
         if 1 <= index <= len(memories):
             return memories[index - 1]
     return ""
+
 
 def save_context(user_id: str, channel_id: str) -> None:
     current_time = time.time()
@@ -84,6 +91,7 @@ def save_context(user_id: str, channel_id: str) -> None:
         with open(CONTEXT_FILE, 'w', encoding='utf-8') as f:
             context = {str(user_id): {"channel_id": channel_id, "timestamp": current_time}}
             json.dump(context, f, indent=2, ensure_ascii=False)
+
 
 def get_channel_by_user(user_id: str):
     try:

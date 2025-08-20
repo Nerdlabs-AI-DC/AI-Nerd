@@ -208,7 +208,6 @@ def setup(bot):
             @discord.ui.button(label="Confirm", style=discord.ButtonStyle.primary, custom_id="confirm_delete")
             async def confirm_delete(self, interaction: Interaction, button: discord.ui.Button):
                 user_id = interaction.user.id
-                # should add smth if no json is here!
                 with open('user_memories.json', 'r+', encoding='utf-8') as f:
                     data = json.load(f)
                     if str(user_id) in data:
@@ -470,13 +469,14 @@ Current board state: """ + str(self.board)}
                     print(json.dumps(messages, ensure_ascii=False, indent=2))
                 completion = await generate_response(
                     messages,
-                    tools=None,
-                    tool_choice=None,
+                    functions=None,
+                    function_call=None,
                 )
+                msg_obj = completion.choices[0].message
                 if DEBUG:
                     print('--- RESPONSE ---')
-                    print(completion.output_text)
-                ai_choice = int(completion.output_text)
+                    print(msg_obj.content)
+                ai_choice = int(msg_obj.content)
                 self.board[ai_choice] = "ai"
                 for child in self.children:
                     if child.custom_id == f"ttt_{ai_choice+1}":
@@ -582,11 +582,12 @@ Current board state: """ + str(self.board)}
             print(json.dumps(messages, ensure_ascii=False, indent=2))
         completion = await generate_response(
             messages,
-            tools=tools,
-            tool_choice={"type": "function", "function": {"name": "create_trivia"}},
+            functions=tools,
+            function_call={"name": "create_trivia"},
             channel_id=interaction.channel.id
         )
-        args = json.loads(completion.tool_calls[0].arguments or '{}')
+        msg_obj = completion.choices[0].message
+        args = json.loads(msg_obj.function_call.arguments or '{}')
         quiz_question = args["question"]
         correct_answers = [
             args['correct_answer1'],
@@ -597,7 +598,7 @@ Current board state: """ + str(self.board)}
         ]
         if DEBUG:
             print('--- RESPONSE ---')
-            print(completion)
+            print(msg_obj)
         await interaction.followup.send(f"### 🎯 Daily Quiz\n> {quiz_question}\nType your answer now within 30 seconds!")
         def check(m):
             return m.author == interaction.user and m.channel == interaction.channel
@@ -637,11 +638,12 @@ Current board state: """ + str(self.board)}
                         print(json.dumps(messages, ensure_ascii=False, indent=2))
                     completion = await generate_response(
                         messages,
-                        tools=tools,
-                        tool_choice={"type": "function", "function": {"name": "create_trivia"}},
+                        functions=tools,
+                        function_call={"name": "create_trivia"},
                         channel_id=interaction.channel.id
                     )
-                    args = json.loads(completion.tool_calls[0].arguments or '{}')
+                    msg_obj = completion.choices[0].message
+                    args = json.loads(msg_obj.function_call.arguments or '{}')
                     quiz_question = args["question"]
                     correct_answers = [
                         args['correct_answer1'],
@@ -652,7 +654,7 @@ Current board state: """ + str(self.board)}
                     ]
                     if DEBUG:
                         print('--- RESPONSE ---')
-                        print(completion)
+                        print(msg_obj)
                     await interaction.response.send_message(f"-# You bought a retry for 250 nerdscore\n### 🎯 Daily Quiz\n> {quiz_question}\nType your answer now within 30 seconds!")
                     try:
                         retry_reply = await interaction.client.wait_for("message", timeout=30.0, check=check)
