@@ -398,7 +398,6 @@ async def send_message(message, system_msg=None, force_response=False, functions
         system = SYSTEM_SHORT
 
     messages = [
-    {'role': 'system', 'content': system},
     *history,
     {'role': 'user', 'content': user_content}
     ]
@@ -422,7 +421,8 @@ async def send_message(message, system_msg=None, force_response=False, functions
             messages,
             tools=local_tools,
             tool_choice=functioncall,
-            channel_id=message.channel.id
+            channel_id=message.channel.id,
+            instructions=system
         )
     else:
         async with message.channel.typing():
@@ -430,7 +430,8 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 messages,
                 tools=local_tools,
                 tool_choice=functioncall,
-                channel_id=message.channel.id
+                channel_id=message.channel.id,
+                instructions=system
             )
     class MsgObj:
         def __init__(self, content, tool_calls=None):
@@ -531,7 +532,8 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 messages,
                 tools=None,
                 tool_choice=None,
-                channel_id=message.channel.id
+                channel_id=message.channel.id,
+                instructions=system
             )
             msg_obj = MsgObj(completion2.output_text, getattr(completion2, 'tool_calls', None))
 

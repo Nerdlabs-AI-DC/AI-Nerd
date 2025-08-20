@@ -7,11 +7,11 @@ from credentials import openai_key
 
 _oai = OpenAI(api_key=openai_key)
 
-async def generate_response(messages, tools=None, tool_choice=None, model=MODEL, channel_id=None):
+async def generate_response(messages, tools=None, tool_choice=None, model=MODEL, channel_id=None, instructions=None):
     loop = asyncio.get_event_loop()
     if DEBUG:
-        print(f"Generating response with model: {model} and channel id: {channel_id}")
-    kwargs = dict(model=model, instructions=None, input=messages, max_output_tokens=2000, reasoning={ "effort": "minimal" })
+        print(f"Generating response with model: {model} and channel id: {channel_id}. Instructions: {instructions}")
+    kwargs = dict(model=model, instructions=instructions, input=messages, max_output_tokens=2000, reasoning={ "effort": "minimal" })
     if tools:
         # Ensure each tool dict has a 'type' key set to 'function'
         fixed_tools = []
