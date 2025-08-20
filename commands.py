@@ -341,11 +341,13 @@ def setup(bot):
         completion = await generate_response(
             messages,
             tools=tools,
-            tool_choice={"name": "create_trivia"},
+            tool_choice={"type": "function", "name": "create_trivia"},
             channel_id=interaction.channel.id
         )
-        tool_call = completion.tool_calls[0] if getattr(completion, 'tool_calls', None) else None
-        args = json.loads(tool_call.arguments or '{}') if tool_call else {}
+        args = {}
+        for item in completion.output:
+            if item.type == "function_call":
+                args = json.loads(item.arguments or "{}")
         
         user_recent.append(args["question"])
         if len(user_recent) > 50:
@@ -402,7 +404,7 @@ def setup(bot):
             view.add_item(button)
         if DEBUG:
             print('--- RESPONSE ---')
-            print(tool_call if tool_call else completion.output_text)
+            print(args)
         await interaction.followup.send(f"### ❔ Trivia\nGenre: {genre}\nDifficulty: {difficulty}\n> {args['question']}", view=view)
         question_time = time.monotonic()
 

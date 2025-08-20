@@ -340,7 +340,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
             content.append({'type': 'input_text', 'text': f"Message content: {msg.content}"})
             for attach in msg.attachments:
                 if attach.content_type and attach.content_type.startswith('image/'):
-                    content.append({'type': 'input_image', 'image_url': {'url': attach.url}})
+                    content.append({'type': 'input_image', 'image_url': attach.url})
         history.append({'role': role, 'content': content})
         if len(history) >= HISTORY_SIZE:
             break
@@ -391,7 +391,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
         user_content.append({'type': 'input_text', 'text': f"Message content: {message.content}"})
     for attach in message.attachments:
         if attach.content_type and attach.content_type.startswith('image/'):
-            user_content.append({'type': 'input_image', 'image_url': {'url': attach.url}})
+            user_content.append({'type': 'input_image', 'image_url': attach.url})
         
     system = system_content
     if freewill:
