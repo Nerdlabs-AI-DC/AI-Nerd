@@ -281,8 +281,7 @@ def setup(bot):
         completion = await generate_response(
             input_list,
             tools=None,
-            tool_choice=None,
-            channel_id=interaction.channel.id
+            tool_choice=None
         )
 
         msg_text = completion.output_text
@@ -475,14 +474,14 @@ Current board state: """ + str(self.board)}
                     print(json.dumps(messages, ensure_ascii=False, indent=2))
                 completion = await generate_response(
                     messages,
-                    functions=None,
-                    function_call=None,
+                    tools=None,
+                    tool_choice=None,
                 )
-                msg_obj = completion.choices[0].message
+                msg_obj = completion.output_text
                 if DEBUG:
                     print('--- RESPONSE ---')
-                    print(msg_obj.content)
-                ai_choice = int(msg_obj.content)
+                    print(msg_obj)
+                ai_choice = int(msg_obj)
                 self.board[ai_choice] = "ai"
                 for child in self.children:
                     if child.custom_id == f"ttt_{ai_choice+1}":
