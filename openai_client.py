@@ -13,11 +13,10 @@ async def generate_response(messages, tools=None, tool_choice=None, model=MODEL,
         print(f"Generating response with model: {model} and channel id: {channel_id}")
     kwargs = dict(model=model, instructions=instructions, input=messages, max_output_tokens=2000, reasoning={ "effort": "minimal" })
     if tools:
-        # Ensure each tool dict has a 'type' key set to 'function'
         fixed_tools = []
         for tool in tools:
             if 'type' not in tool:
-                tool = dict(tool)  # copy
+                tool = dict(tool)
                 tool['type'] = 'function'
             fixed_tools.append(tool)
         kwargs["tools"] = fixed_tools
