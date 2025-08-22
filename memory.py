@@ -33,8 +33,14 @@ def save_memory(summary: str, full_memory: str) -> int:
 
 
 def get_memory_detail(index: int) -> str:
-    with open(MEMORIES_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
+    try:
+        with open(MEMORIES_FILE, 'r', encoding='utf-8') as f:
+            try:
+                data = json.load(f)
+            except json.JSONDecodeError:
+                data = {"memories": []}
+    except FileNotFoundError:
+        data = {"memories": []}
     memories = data.get("memories", [])
     if 1 <= index <= len(memories):
         return memories[index - 1]
@@ -64,10 +70,16 @@ def save_user_memory(user_id: str, summary: str, full_memory: str) -> int:
 
 def get_user_memory_detail(user_id: str, index: int) -> str:
     user_key = str(user_id)
-    with open(USER_MEMORIES_FILE, 'r', encoding='utf-8') as f:
-        data = json.load(f)
+    try:
+        with open(USER_MEMORIES_FILE, 'r', encoding='utf-8') as f:
+            try:
+                data = json.load(f)
+            except json.JSONDecodeError:
+                data = {}
+    except FileNotFoundError:
+        data = {}
     if user_key in data:
-        memories = data[user_key]["memories"]
+        memories = data[user_key].get("memories", [])
         if 1 <= index <= len(memories):
             return memories[index - 1]
     return ""
