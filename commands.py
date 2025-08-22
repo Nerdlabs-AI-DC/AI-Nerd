@@ -587,12 +587,13 @@ Current board state: """ + str(self.board)}
             print(json.dumps(messages, ensure_ascii=False, indent=2))
         completion = await generate_response(
             messages,
-            functions=tools,
-            function_call={"name": "create_trivia"},
-            channel_id=interaction.channel.id
+            tools=tools,
+            tool_choice={"type": "function", "name": "create_trivia"},
         )
-        msg_obj = completion.choices[0].message
-        args = json.loads(msg_obj.function_call.arguments or '{}')
+        args = {}
+        for item in completion.output:
+            if item.type == "function_call":
+                args = json.loads(item.arguments or "{}")
         quiz_question = args["question"]
         correct_answers = [
             args['correct_answer1'],
@@ -603,7 +604,7 @@ Current board state: """ + str(self.board)}
         ]
         if DEBUG:
             print('--- RESPONSE ---')
-            print(msg_obj)
+            print(args)
         await interaction.followup.send(f"### 🎯 Daily Quiz\n> {quiz_question}\nType your answer now within 30 seconds!")
         def check(m):
             return m.author == interaction.user and m.channel == interaction.channel
@@ -634,6 +635,7 @@ Current board state: """ + str(self.board)}
                     if get_nerdscore(interaction.user.id) < 250:
                         await interaction.response.send_message("You need at least 250 nerdscore to retry.", ephemeral=True)
                         return
+                    await interaction.response.defer(thinking=True)
                     self.retry_used = True
                     button.disabled = True
                     increase_nerdscore(interaction.user.id, -250)
@@ -643,12 +645,13 @@ Current board state: """ + str(self.board)}
                         print(json.dumps(messages, ensure_ascii=False, indent=2))
                     completion = await generate_response(
                         messages,
-                        functions=tools,
-                        function_call={"name": "create_trivia"},
-                        channel_id=interaction.channel.id
+                        tools=tools,
+                        tool_choice={"type": "function", "name": "create_trivia"},
                     )
-                    msg_obj = completion.choices[0].message
-                    args = json.loads(msg_obj.function_call.arguments or '{}')
+                    args = {}
+                    for item in completion.output:
+                        if item.type == "function_call":
+                            args = json.loads(item.arguments or "{}")
                     quiz_question = args["question"]
                     correct_answers = [
                         args['correct_answer1'],
@@ -659,15 +662,15 @@ Current board state: """ + str(self.board)}
                     ]
                     if DEBUG:
                         print('--- RESPONSE ---')
-                        print(msg_obj)
-                    await interaction.response.send_message(f"-# You bought a retry for 250 nerdscore\n### 🎯 Daily Quiz\n> {quiz_question}\nType your answer now within 30 seconds!")
+                        print(args)
+                    await interaction.followup.send(f"-# You bought a retry for 250 nerdscore\n### 🎯 Daily Quiz\n> {quiz_question}\nType your answer now within 30 seconds!")
                     try:
                         retry_reply = await interaction.client.wait_for("message", timeout=30.0, check=check)
                     except asyncio.TimeoutError:
                         await interaction.followup.send(f"Time's up! The correct answer was: **{correct_answers[0]}**")
                         self.stop()
                         return
-                    if any(reply.content.strip().lower() == ans.strip().lower() for ans in correct_answers):
+                    if any(retry_reply.content.strip().lower() == ans.strip().lower() for ans in correct_answers):
                         increase_nerdscore(interaction.user.id, 500)
                         await interaction.followup.send("Correct! You earned 500 nerdscore.")
                     else:
