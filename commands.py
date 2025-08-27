@@ -559,13 +559,9 @@ Current board state: """ + str(self.board)}
             return await interaction.followup.send("You have already taken today's quiz. Try again tomorrow!")
         properties = {
             'question': {'type': 'string'},
-            'correct_answer1': {'type': 'string'},
-            'correct_answer2': {'type': 'string'},
-            'correct_answer3': {'type': 'string'},
-            'correct_answer4': {'type': 'string'},
-            'correct_answer5': {'type': 'string'}
+            'correct_answer': {'type': 'string'}
         }
-        property_names = ['question', 'correct_answer1', 'correct_answer2', 'correct_answer3', 'correct_answer4', 'correct_answer5']
+        property_names = ['question', 'correct_answer']
         tools = [
             {
                 'name': 'create_trivia',
@@ -596,11 +592,7 @@ Current board state: """ + str(self.board)}
                 args = json.loads(item.arguments or "{}")
         quiz_question = args["question"]
         correct_answers = [
-            args['correct_answer1'],
-            args['correct_answer2'],
-            args['correct_answer3'],
-            args['correct_answer4'],
-            args['correct_answer5']
+            args['correct_answer']
         ]
         if DEBUG:
             print('--- RESPONSE ---')
@@ -609,12 +601,34 @@ Current board state: """ + str(self.board)}
         def check(m):
             return m.author == interaction.user and m.channel == interaction.channel
         first_attempt_correct = False
+        timeout = False
         try:
             reply = await interaction.client.wait_for("message", timeout=30.0, check=check)
             if any(reply.content.strip().lower() == ans.strip().lower() for ans in correct_answers):
                 first_attempt_correct = True
-            else:
-                timeout = False
+            else:  
+                checkmessages = [
+                    {'role': 'developer', 'content': f"""You are checking trivia answers. 
+Question: "{quiz_question}" 
+Proposed answer: "{reply.content}" 
+If the proposed answer means the same as the correct answer (even if the spelling or wording is different), output only: True  
+If it is not correct, output only: False  
+Do not add explanations, punctuation, or extra text.
+"""}
+                ]
+                if DEBUG:
+                    print('--- DAILY QUIZ REQUEST ---')
+                    print(json.dumps(checkmessages, ensure_ascii=False, indent=2))
+                completion = await generate_response(
+                    checkmessages
+                )
+                if DEBUG:
+                    print('--- RESPONSE ---')
+                    print(completion.output_text)
+                if completion.output_text == "True":
+                    first_attempt_correct = True
+                else:
+                    first_attempt_correct = False
         except asyncio.TimeoutError:
             timeout = True
             pass
@@ -654,11 +668,7 @@ Current board state: """ + str(self.board)}
                             args = json.loads(item.arguments or "{}")
                     quiz_question = args["question"]
                     correct_answers = [
-                        args['correct_answer1'],
-                        args['correct_answer2'],
-                        args['correct_answer3'],
-                        args['correct_answer4'],
-                        args['correct_answer5']
+                        args['correct_answer']
                     ]
                     if DEBUG:
                         print('--- RESPONSE ---')
@@ -674,15 +684,37 @@ Current board state: """ + str(self.board)}
                         increase_nerdscore(interaction.user.id, 500)
                         await interaction.followup.send("Correct! You earned 500 nerdscore.")
                     else:
+                        checkmessages = [
+                        {'role': 'developer', 'content': f"""You are checking trivia answers. 
+Question: "{quiz_question}" 
+Proposed answer: "{reply.content}" 
+If the proposed answer means the same as the correct answer (even if the spelling or wording is different), output only: True  
+If it is not correct, output only: False  
+Do not add explanations, punctuation, or extra text.
+"""}
+                    ]
+                    if DEBUG:
+                        print('--- DAILY QUIZ REQUEST ---')
+                        print(json.dumps(checkmessages, ensure_ascii=False, indent=2))
+                    completion = await generate_response(
+                        checkmessages
+                    )
+                    if DEBUG:
+                        print('--- RESPONSE ---')
+                        print(completion.output_text)
+                    if completion.output_text == "True":
+                        increase_nerdscore(interaction.user.id, 500)
+                        await interaction.followup.send("Correct! You earned 500 nerdscore.")
+                    else:
                         await interaction.followup.send(f"Incorrect! The correct answer was: **{correct_answers[0]}**")
                     records[user_id] = today
                     save_daily_quiz_records(records)
                     self.stop()
             view = RetryView()
             if timeout:
-                await interaction.followup.send(f"Time's up! The correct answer was: **{correct_answers[0]}**\nWould you like to retry for 250 nerdscore?", view=view)
+                await interaction.followup.send(f"Time's up! The correct answer was: **{correct_answers[0]}**\nWould you like to retry by paying 250 nerdscore?", view=view)
             else:
-                await interaction.followup.send(f"Incorrect! The correct answer was: **{correct_answers[0]}**\nWould you like to retry for 250 nerdscore?", view=view)
+                await interaction.followup.send(f"Incorrect! The correct answer was: **{correct_answers[0]}**\nWould you like to retry by paying 250 nerdscore?", view=view)
             await view.wait()
             if not view.retry_used:
                 records[user_id] = today
