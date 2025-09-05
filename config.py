@@ -7,10 +7,12 @@ from pathlib import Path
 RESPOND_TO_PINGS = True
 HISTORY_SIZE = 10
 MODEL = "gpt-5-mini"
+FALLBACK_MODEL = "gpt-5-nano"
 DEBUG = False # I recommend enabling this while testing
 REACTIONS = True # This enables/disables message reactions!
 FREEWILL_MESSAGE_INTERVAL = 600  # Time in seconds between free will message checks (default: 10 minutes)
 MEMORY_LIMIT = 50
+DAILY_MESSAGE_LIMIT = 50
 
 # Files
 DATA_DIR = Path("data")
@@ -23,6 +25,7 @@ SETTINGS_FILE = DATA_DIR / "serversettings.json"
 CONTEXT_FILE = DATA_DIR / "context_memory.json"
 METRICS_FILE = DATA_DIR / "user_metrics.json"
 FREEWILL_FILE = DATA_DIR / "recent_freewill.json"
+DAILY_MESSAGE_FILE = DATA_DIR / "daily_message_counts.json"
 
 
 # System prompt

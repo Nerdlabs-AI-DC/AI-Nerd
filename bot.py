@@ -21,7 +21,11 @@ from config import (
     METRICS_FILE,
     FREEWILL_MESSAGE_INTERVAL,
     FREEWILL_TIMEOUT,
-    FREEWILL_FILE
+    FREEWILL_FILE,
+    DAILY_MESSAGE_FILE,
+    DAILY_MESSAGE_LIMIT,
+    FALLBACK_MODEL,
+    MODEL
 )
 from memory import init_memory_files, save_memory, get_memory_detail, save_user_memory, get_user_memory_detail, save_context, get_channel_by_user
 from openai_client import generate_response
@@ -59,6 +63,60 @@ def save_settings(settings: dict):
 RATE_LIMIT = 10
 RATE_PERIOD = 60
 user_requests = defaultdict(lambda: deque())
+
+# Daily message counters
+from datetime import datetime, timezone, timedelta
+
+DAILY_PATH = Path(DAILY_MESSAGE_FILE)
+
+def load_daily_counts():
+    if not DAILY_PATH.exists():
+        try:
+            DAILY_PATH.write_text("{}", encoding='utf-8')
+        except Exception:
+            pass
+        return {}
+    try:
+        with open(DAILY_PATH, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, FileNotFoundError):
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    return data
+
+def save_daily_counts(data: dict):
+    try:
+        with open(DAILY_PATH, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2)
+    except Exception:
+        pass
+
+def increment_user_daily_count(user_id: int) -> int:
+    data = load_daily_counts()
+    now = datetime.now(timezone.utc)
+    today = now.strftime('%Y-%m-%d')
+    last_update_str = data.get('_last_update')
+    if last_update_str:
+        try:
+            last_update = datetime.fromisoformat(last_update_str)
+        except Exception:
+            last_update = None
+    else:
+        last_update = None
+
+    if not last_update or last_update.date() != now.date():
+        data = {'_last_update': now.isoformat(), today: {}}
+    else:
+        data['_last_update'] = now.isoformat()
+        if today not in data:
+            data[today] = {}
+
+    day_counts = data.setdefault(today, {})
+    key = str(user_id)
+    day_counts[key] = day_counts.get(key, 0) + 1
+    save_daily_counts(data)
+    return day_counts[key]
 
 # Bot setup
 intents = discord.Intents.default()
@@ -417,21 +475,27 @@ async def send_message(message, system_msg=None, force_response=False, functions
         print(json.dumps(messages, ensure_ascii=False, indent=2))
 
     if freewill:
-        completion = await generate_response(
-            messages,
-            tools=local_tools,
-            tool_choice=functioncall,
-            channel_id=message.channel.id,
-            instructions=system
-        )
-    else:
-        async with message.channel.typing():
+            count = increment_user_daily_count(user_id)
+            model_to_use = FALLBACK_MODEL if count > DAILY_MESSAGE_LIMIT else MODEL
             completion = await generate_response(
                 messages,
                 tools=local_tools,
                 tool_choice=functioncall,
                 channel_id=message.channel.id,
-                instructions=system
+                instructions=system,
+                model=model_to_use
+            )
+    else:
+        async with message.channel.typing():
+            count = increment_user_daily_count(user_id)
+            model_to_use = FALLBACK_MODEL if count > DAILY_MESSAGE_LIMIT else MODEL
+            completion = await generate_response(
+                messages,
+                tools=local_tools,
+                tool_choice=functioncall,
+                channel_id=message.channel.id,
+                instructions=system,
+                model=model_to_use
             )
     class MsgObj:
         def __init__(self, content, tool_calls=None):
