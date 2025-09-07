@@ -142,3 +142,16 @@ def get_channel_by_user(user_id: str):
     if isinstance(data, dict):
         return data.get("channel_id", ""), data.get("timestamp", 0)
     return "", 0
+
+
+def delete_user_memories(user_id: str) -> bool:
+    key = str(user_id)
+    data = _read_json_encrypted(USER_MEMORIES_FILE) or {}
+    if key in data:
+        try:
+            del data[key]
+            _write_json_encrypted(USER_MEMORIES_FILE, data)
+            return True
+        except Exception:
+            raise
+    return False

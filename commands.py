@@ -13,6 +13,7 @@ import requests
 from openai_client import generate_response, generate_image
 from config import DEBUG, DAILY_QUIZ_FILE, RECENT_QUESTIONS_FILE, METRICS_FILE
 from nerdscore import get_nerdscore, increase_nerdscore, load_nerdscore
+from memory import delete_user_memories
 
 def load_recent_questions():
     if os.path.exists(RECENT_QUESTIONS_FILE):
@@ -208,13 +209,7 @@ def setup(bot):
             @discord.ui.button(label="Confirm", style=discord.ButtonStyle.primary, custom_id="confirm_delete")
             async def confirm_delete(self, interaction: Interaction, button: discord.ui.Button):
                 user_id = interaction.user.id
-                with open('user_memories.json', 'r+', encoding='utf-8') as f:
-                    data = json.load(f)
-                    if str(user_id) in data:
-                        del data[str(user_id)]
-                        f.seek(0)
-                        f.truncate()
-                        json.dump(data, f, indent=4, ensure_ascii=False)
+                delete_user_memories(user_id)
                 await interaction.response.send_message("Your memories have been deleted.", ephemeral=True)
         view = MyView()
         await interaction.response.send_message(
