@@ -365,7 +365,6 @@ async def send_message(message, system_msg=None, force_response=False, functions
         return
     dq.append(now)
 
-    update_metrics(user_id)
     servers.set(len(bot.guilds))
 
     # System prompt building
@@ -613,6 +612,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
     else:
         await message.reply(content, mention_author=False)
     messages_sent.inc()
+    update_metrics(user_id)
 
     # super-duper epic reactions yay
     if config.REACTIONS and msg_obj.function_call and msg_obj.function_call.name == 'add_reaction':
