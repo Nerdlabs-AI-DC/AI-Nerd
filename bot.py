@@ -310,7 +310,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
         if len(messages) < 2:
             return
         msg = messages[1]
-        now = datetime.datetime.now(datetime.timezone.utc)
+        now = datetime.now(timezone.utc)
         delta = now - msg.created_at
         if delta.total_seconds() < 60 and msg.author.id == bot.user.id:
             if rate == "low":
@@ -476,7 +476,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
 
     if freewill:
             count = increment_user_daily_count(user_id)
-            model_to_use = FALLBACK_MODEL if count > DAILY_MESSAGE_LIMIT else MODEL
+            model_to_use = FALLBACK_MODEL
             completion = await generate_response(
                 messages,
                 tools=local_tools,
@@ -691,7 +691,7 @@ async def chatrevive_task():
                     async for msg in channel.history(limit=1):
                         last_message = msg
                     if last_message:
-                        now = datetime.datetime.now(datetime.timezone.utc)
+                        now = datetime.now(timezone.utc)
                         delta = now - last_message.created_at
                         if delta.total_seconds() > timeout * 60:
                             role_mention = f"<@&{role_id}>"
@@ -775,7 +775,7 @@ async def freewill_task():
                     if msg.author.id == bot.user.id:
                         last_bot_message_time = msg.created_at
                         break
-                now = datetime.datetime.now(datetime.timezone.utc)
+                now = datetime.now(timezone.utc)
                 last_attempted_id = freewill_attempts.get(str(channel_id))
                 if last_attempted_id == last_message.id:
                     if DEBUG:
