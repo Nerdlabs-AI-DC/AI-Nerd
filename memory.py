@@ -22,7 +22,7 @@ def _get_key() -> bytes:
 def _encrypt_bytes(plaintext: bytes) -> bytes:
     key = _get_key()
     aesgcm = AESGCM(key)
-    nonce = os.urandom(12)  # 96-bit nonce recommended for GCM
+    nonce = os.urandom(12)
     ciphertext = aesgcm.encrypt(nonce, plaintext, None)
     return base64.urlsafe_b64encode(nonce + ciphertext)
 
@@ -75,7 +75,6 @@ def save_memory(summary: str, full_memory: str) -> int:
     data = _read_json_encrypted(MEMORIES_FILE)
     if data is None:
         data = {"summaries": [], "memories": []}
-    # Enforce limit
     if len(data.get("summaries", [])) >= MEMORY_LIMIT:
         data["summaries"].pop(0)
         data["memories"].pop(0)
