@@ -10,7 +10,7 @@ _oai = OpenAI(api_key=openai_key)
 async def generate_response(messages, tools=None, tool_choice=None, model=MODEL, channel_id=None, instructions=None):
     loop = asyncio.get_event_loop()
     if DEBUG:
-        print(f"Generating response with model: {model} and channel id: {channel_id}")
+        print(f"Generating response with model: {model} and channel id: {channel_id}. Instructions: {instructions}")
     kwargs = dict(model=model, instructions=instructions, input=messages, max_output_tokens=2000, reasoning={ "effort": "minimal" })
     if tools:
         fixed_tools = []

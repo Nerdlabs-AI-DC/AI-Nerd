@@ -27,7 +27,17 @@ from config import (
     FALLBACK_MODEL,
     MODEL
 )
-from memory import init_memory_files, save_memory, get_memory_detail, save_user_memory, get_user_memory_detail, save_context, get_channel_by_user
+from memory import (
+    init_memory_files,
+    save_memory,
+    get_memory_detail,
+    save_user_memory,
+    get_user_memory_detail,
+    save_context,
+    get_channel_by_user,
+    get_all_summaries,
+    get_user_summaries,
+)
 from openai_client import generate_response
 from credentials import token as TOKEN
 from nerdscore import increase_nerdscore
@@ -406,24 +416,14 @@ async def send_message(message, system_msg=None, force_response=False, functions
     if moved:
         history.append({'role': 'system', 'content': 'The conversation has moved to a different channel.'})
 
-    with open(config.FULL_MEMORY_FILE, 'r', encoding='utf-8') as f:
-        try:
-            full_data = json.load(f)
-        except json.JSONDecodeError:
-            full_data = {"summaries": []}
-        summaries = full_data.get("summaries", [])
+    summaries = get_all_summaries()
     summary_list = "\n".join(f"{i+1}. {s}" for i, s in enumerate(summaries))
-    
-    user_key = str(message.author.id)
-    with open(config.USER_MEMORIES_FILE, 'r', encoding='utf-8') as f:
-        try:
-            data = json.load(f)
-        except json.JSONDecodeError:
-            data = {}
-        if user_key in data:
-            user_summaries = "\n".join(f"{i+1}. {s}" for i, s in enumerate(data[user_key]["summaries"]))
-        else:
-            user_summaries = "No user memories found."
+
+    user_summaries_list = get_user_summaries(message.author.id)
+    if user_summaries_list:
+        user_summaries = "\n".join(f"{i+1}. {s}" for i, s in enumerate(user_summaries_list))
+    else:
+        user_summaries = "No user memories found."
 
     channel_name = message.channel.name if not is_dm else 'DM'
     guild_name = message.guild.name if not is_dm else 'DM'

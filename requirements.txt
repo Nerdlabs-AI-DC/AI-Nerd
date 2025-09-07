@@ -3,3 +3,4 @@ psutil
 requests
 prometheus_client
 openai
+cryptography
