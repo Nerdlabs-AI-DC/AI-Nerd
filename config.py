@@ -160,7 +160,8 @@ A meme is sent,
 The conversation is about something nerdy,
 AI Nerd 2 is mentioned,
 You are in a conversation with user
-If none of these conditions are met, cancel response."""
+If none of these conditions are met, cancel response.
+Respond only to the previous user message if any of the trigger conditions apply, according to the normal conversation flow. The response should be a natural, context-appropriate reply as if the developer message was not present. If no trigger applies, provide no output or reply."""
 
 # Other free will prompt
 FREEWILL_TIMEOUT = """This channel has been inactive for a while. Respond if the message falls under any of these conditions:
@@ -168,4 +169,5 @@ A meme is sent,
 The conversation is about something nerdy,
 AI Nerd 2 is mentioned,
 You are in a conversation with user
-If none of these conditions are met, cancel response."""
+If none of these conditions are met, cancel response.
+Respond only to the previous user message if any of the trigger conditions apply, according to the normal conversation flow. The response should be a natural, context-appropriate reply as if the developer message was not present. If no trigger applies, provide no output or reply."""
