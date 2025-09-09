@@ -471,6 +471,7 @@ Current board state: """ + str(self.board)}
                     messages,
                     tools=None,
                     tool_choice=None,
+                    effort="low"
                 )
                 msg_obj = completion.output_text
                 if DEBUG:
