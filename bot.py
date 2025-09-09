@@ -482,7 +482,8 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 tool_choice=functioncall,
                 channel_id=message.channel.id,
                 instructions=system,
-                model=model_to_use
+                model=model_to_use,
+                service_tier="flex"
             )
     else:
         async with message.channel.typing():
