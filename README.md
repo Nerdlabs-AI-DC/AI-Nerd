@@ -1,4 +1,6 @@
 # AI Nerd
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/E1E61JZM90) [![](https://dcbadge.limes.pink/api/server/rkSKtdW99R)](https://discord.gg/rkSKtdW99R)
+
 **AI Nerd** is an AI chatbot with a unique nerdy personality. It's designed to be a part of your community, naturally responding to messages and engaging in conversations.
 ## Features
 ### Chatting
