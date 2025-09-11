@@ -460,7 +460,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
     ]
 
     if system_msg:
-        messages.append({'role': 'system', 'content': system_msg})
+        messages.append({'role': 'developer', 'content': system_msg})
         
     # OpenAI request
     local_tools = tools

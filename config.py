@@ -161,15 +161,7 @@ A meme is sent,
 The conversation is about something nerdy,
 AI Nerd 2 is mentioned,
 You are in a conversation with user
-If none of the above conditions are met, call the function cancel_response() with no arguments.
-Do not output text. Do not explain. Do not improvise.
-Respond only to the previous user message if any of the trigger conditions apply, according to the normal conversation flow. The response should be a natural, context-appropriate reply as if the developer message was not present. If no trigger applies, provide no output or reply.
-
-Example 1: User says "How's the weather?" → cancel_response()
-Example 2: User sends a meme image → respond.
-Example 3: User says "AI Nerd 2 is buggy" → respond.
-Example 4: User says "I like pizza" → cancel_response()
-"""
+If none of these conditions are met, you must always call the cancel_response function."""
 
 # Other free will prompt
 FREEWILL_TIMEOUT = """This channel has been inactive for a while. Respond if the message falls under any of these conditions:
@@ -177,11 +169,4 @@ A meme is sent,
 The conversation is about something nerdy,
 AI Nerd 2 is mentioned,
 You are in a conversation with user
-If none of the above conditions are met, call the function cancel_response() with no arguments.
-Do not output text. Do not explain. Do not improvise.
-Respond only to the previous user message if any of the trigger conditions apply, according to the normal conversation flow. The response should be a natural, context-appropriate reply as if the developer message was not present. If no trigger applies, provide no output or reply.
-
-Example 1: User says "How's the weather?" → cancel_response()
-Example 2: User sends a meme image → respond.
-Example 3: User says "AI Nerd 2 is buggy" → respond.
-Example 4: User says "I like pizza" → cancel_response()"""
+If none of these conditions are met, you must always call the cancel_response function."""
