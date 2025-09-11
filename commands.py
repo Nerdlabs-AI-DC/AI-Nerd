@@ -10,8 +10,9 @@ import time
 import io
 import datetime
 import requests
+import sys
 from openai_client import generate_response, generate_image
-from config import DEBUG, DAILY_QUIZ_FILE, RECENT_QUESTIONS_FILE, METRICS_FILE
+from config import DEBUG, DAILY_QUIZ_FILE, RECENT_QUESTIONS_FILE, METRICS_FILE, OWNER_ID
 from nerdscore import get_nerdscore, increase_nerdscore, load_nerdscore
 from memory import delete_user_memories
 
@@ -717,3 +718,15 @@ Do not add explanations, punctuation, or extra text.
                 save_daily_quiz_records(records)
 
     bot.tree.add_command(fun_group)
+
+    admin_group = app_commands.Group(name="admin", description="Admin commands")
+
+    @admin_group.command(name="restart", description="Restart the bot")
+    async def restart(interaction: Interaction):
+        if interaction.user.id == OWNER_ID:
+            await interaction.response.send_message("Restarting...", ephemeral=True)
+            os.execv(sys.executable, [sys.executable] + sys.argv)
+        else:
+            await interaction.response.send_message("You are not authorized to use this command.", ephemeral=True)
+
+    bot.tree.add_command(admin_group)

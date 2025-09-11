@@ -13,6 +13,7 @@ REACTIONS = True # This enables/disables message reactions!
 FREEWILL_MESSAGE_INTERVAL = 600  # Time in seconds between free will message checks (default: 10 minutes)
 MEMORY_LIMIT = 50
 DAILY_MESSAGE_LIMIT = 50
+OWNER_ID = 686109465971392512  # User id of the bot owner (for admin commands)
 
 # Files
 DATA_DIR = Path("data")
