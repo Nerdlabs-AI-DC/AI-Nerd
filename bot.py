@@ -152,14 +152,18 @@ def update_metrics(user_id: int) -> None:
 
 chatrevive_task_started = False
 
-async def replace_role_mentions(text, guild):
-    def repl(match):
-        role_id = int(match.group(1))
-        role = guild.get_role(role_id)
-        return f"@{role.name}" if role else "@role"
-    text = re.sub(r'<@&(\d+)>', repl, text)
-    text = re.sub(r'@everyone', '@redacted', text, flags=re.IGNORECASE)
-    text = re.sub(r'@here', '@redacted', text, flags=re.IGNORECASE)
+async def process_response(text, guild, count):
+    if guild:
+        def repl(match):
+            role_id = int(match.group(1))
+            role = guild.get_role(role_id)
+            return f"@{role.name}" if role else "@role"
+        text = re.sub(r'<@&(\d+)>', repl, text)
+        text = re.sub(r'@everyone', '@redacted', text, flags=re.IGNORECASE)
+        text = re.sub(r'@here', '@redacted', text, flags=re.IGNORECASE)
+    if count == DAILY_MESSAGE_LIMIT:
+        timestamp = int((datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=timezone.utc) + timedelta(days=1)).timestamp())
+        text += f"\n-# It seems that you have been chatting a lot today. To reduce costs, a less advanced model will be used for the rest of the day. Responses may be less accurate. Your limit resets <t:{timestamp}:R>."
     return text
 
 # Functions
@@ -473,8 +477,9 @@ async def send_message(message, system_msg=None, force_response=False, functions
         print('--- MESSAGE REQUEST ---')
         print(json.dumps(messages, ensure_ascii=False, indent=2))
 
+    count = None
+
     if freewill:
-            count = increment_user_daily_count(user_id)
             model_to_use = FALLBACK_MODEL
             completion = await generate_response(
                 messages,
@@ -605,7 +610,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
     if DEBUG:
         print('--- RESPONSE ---')
         print(msg_obj.content)
-    content = await replace_role_mentions(msg_obj.content, message.guild) if message.guild and not force_response else msg_obj.content
+    content = await process_response(msg_obj.content, message.guild, count)
     if reply_msg:
         await reply_msg.reply(content, mention_author=False)
     elif is_dm or is_allowed or freewill or force_response:
