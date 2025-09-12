@@ -610,6 +610,12 @@ async def send_message(message, system_msg=None, force_response=False, functions
     if DEBUG:
         print('--- RESPONSE ---')
         print(msg_obj.content)
+    # this stupid ai forgets how to call functions sometimes so i added this
+    if isinstance(msg_obj.content, str) and msg_obj.content.strip() in ("cancel_response", "cancel_response()"):
+        if DEBUG:
+            print("Cancelling response.")
+        return
+
     content = await process_response(msg_obj.content, message.guild, count)
     if reply_msg:
         await reply_msg.reply(content, mention_author=False)
