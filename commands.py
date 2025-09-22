@@ -237,7 +237,7 @@ def setup(bot):
             data = oai_status.json()
             status = None
             for component in data.get("components", []):
-                if component["id"] == "01JP8CD9JR3HR6Y7G4Q75N4DVW":
+                if component["id"] == "01JMXBRMFE6N2NNT7DG6XZQ6PW":
                     status = component["status"]
                     break
         else:
