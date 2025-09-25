@@ -372,7 +372,6 @@ async def send_message(message, system_msg=None, force_response=False, functions
             moved = False
         else:
             moved = True
-    save_context(user_id, message.channel.id)
     history = []
     async for msg in history_channel.history(limit=HISTORY_SIZE+1, oldest_first=False):
         if msg.id == message.id:
@@ -495,17 +494,8 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 self.function_call = tool_calls[0] if tool_calls else None
     msg_obj = MsgObj(completion.output_text, getattr(completion, 'tool_calls', None))
 
-    if system_msg == FREEWILL_TIMEOUT:
-        try:
-            with open(config.FREEWILL_FILE, 'r', encoding='utf-8') as f:
-                freewill_attempts = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            freewill_attempts = {}
-        freewill_attempts[str(channel_id)] = message.id
-        with open(config.FREEWILL_FILE, 'w', encoding='utf-8') as f:
-            json.dump(freewill_attempts, f, indent=2)
-
     reply_msg = None
+    cancelled = False
 
 # Function call handling
     messages += completion.output
@@ -541,7 +531,14 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 tool_result = f'Status set to {new_status}'
 
             elif name == 'cancel_response':
-                return
+                cancelled = True
+                tool_result = "Response cancelled by function call."
+                messages.append({
+                    "type": "function_call_output",
+                    "call_id": call_id,
+                    "output": json.dumps({"result": tool_result})
+                })
+                break
 
             elif name == 'send_dm':
                 dmmessage = args['message']
@@ -552,7 +549,13 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 except discord.Forbidden:
                     tool_result = "Failed to send DM"
                 if args.get("send_followup") is False:
-                    return
+                    cancelled = True
+                    messages.append({
+                        "type": "function_call_output",
+                        "call_id": call_id,
+                        "output": json.dumps({"result": tool_result})
+                    })
+                    break
 
             elif name == 'give_nerdscore':
                 increase_nerdscore(message.author.id, 1)
@@ -571,7 +574,13 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 elif isinstance(args.get('emojis'), list) and args.get('target') == 'self':
                     tool_result = f"Would react to own message with {args['emojis']}"
                 if args.get("send_followup") is False:
-                    return
+                    cancelled = True
+                    messages.append({
+                        "type": "function_call_output",
+                        "call_id": call_id,
+                        "output": json.dumps({"result": tool_result})
+                    })
+                    break
 
             elif name == 'reply':
                 reply_msg = await message.channel.fetch_message(args['message_id'])
@@ -582,6 +591,8 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 "call_id": call_id,
                 "output": json.dumps({"result": tool_result})
             })
+            if cancelled:
+                break
             completion2 = await generate_response(
                 messages,
                 tools=None,
@@ -599,6 +610,23 @@ async def send_message(message, system_msg=None, force_response=False, functions
     if isinstance(msg_obj.content, str) and msg_obj.content.strip() in ("cancel_response", "cancel_response()"):
         if DEBUG:
             print("Cancelling response.")
+        # Post-response processing
+        try:
+            save_context(user_id, message.channel.id)
+        except Exception:
+            pass
+        if system_msg == FREEWILL_TIMEOUT:
+            try:
+                with open(config.FREEWILL_FILE, 'r', encoding='utf-8') as f:
+                    freewill_attempts = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                freewill_attempts = {}
+            freewill_attempts[str(channel_id)] = message.id
+            try:
+                with open(config.FREEWILL_FILE, 'w', encoding='utf-8') as f:
+                    json.dump(freewill_attempts, f, indent=2)
+            except Exception:
+                pass
         return
 
     content = await process_response(msg_obj.content, message.guild, count)
@@ -610,6 +638,24 @@ async def send_message(message, system_msg=None, force_response=False, functions
         await message.reply(content, mention_author=False)
     messages_sent.inc()
     update_metrics(user_id)
+
+    # Post-response processing
+    try:
+        save_context(user_id, message.channel.id)
+    except Exception:
+        pass
+    if system_msg == FREEWILL_TIMEOUT:
+        try:
+            with open(config.FREEWILL_FILE, 'r', encoding='utf-8') as f:
+                freewill_attempts = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            freewill_attempts = {}
+        freewill_attempts[str(channel_id)] = message.id
+        try:
+            with open(config.FREEWILL_FILE, 'w', encoding='utf-8') as f:
+                json.dump(freewill_attempts, f, indent=2)
+        except Exception:
+            pass
 
     # super-duper epic reactions yay
     if config.REACTIONS and msg_obj.function_call and msg_obj.function_call.name == 'add_reaction':
