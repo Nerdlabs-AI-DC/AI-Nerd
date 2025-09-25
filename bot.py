@@ -37,6 +37,10 @@ from memory import (
     get_channel_by_user,
     get_all_summaries,
     get_user_summaries,
+    load_memory_cache,
+    add_memory_to_cache,
+    add_user_memory_to_cache,
+    flush_memory_cache,
 )
 from openai_client import generate_response
 from credentials import token as TOKEN
@@ -262,6 +266,11 @@ tools = [
 async def on_ready():
     # global chatrevive_task_started, conversation_finalizer_task_started
     init_memory_files()
+    try:
+        load_memory_cache()
+    except Exception:
+        if DEBUG:
+            print("Failed to load memory cache on startup")
     await bot.tree.sync()
     print(f"Ready as {bot.user}")
     # if not chatrevive_task_started:
@@ -274,6 +283,7 @@ async def on_ready():
 
 # Main message handler
 async def send_message(message, system_msg=None, force_response=False, functions=True):
+    start_time = time.time()
     # if not message.author.bot:
     #     user_id, channel_id = get_conversation_key(message)
     #     await conv_manager.process_message(user_id, channel_id, message.content)
@@ -460,6 +470,8 @@ async def send_message(message, system_msg=None, force_response=False, functions
     if DEBUG:
         print('--- MESSAGE REQUEST ---')
         print(json.dumps(messages, ensure_ascii=False, indent=2))
+        latency = time.time() - start_time
+        print(f"Message processing took {latency} seconds")
 
     count = None
 
@@ -496,6 +508,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
 
     reply_msg = None
     cancelled = False
+    memory_cache_modified = False
 
 # Function call handling
     messages += completion.output
@@ -511,11 +524,21 @@ async def send_message(message, system_msg=None, force_response=False, functions
 
             if name == 'save_memory':
                 if args.get('user_memory'):
-                    idx = save_user_memory(message.author.id, args['summary'], args['full_memory'])
-                    tool_result = f'User memory saved. Index {idx}.'
+                    try:
+                        idx = add_user_memory_to_cache(message.author.id, args['summary'], args['full_memory'])
+                        memory_cache_modified = True
+                        tool_result = f'User memory saved to cache. Index {idx}.'
+                    except Exception:
+                        idx = save_user_memory(message.author.id, args['summary'], args['full_memory'])
+                        tool_result = f'User memory saved. Index {idx}.'
                 else:
-                    idx = save_memory(args['summary'], args['full_memory'])
-                    tool_result = f'Global memory saved. Index {idx}.'
+                    try:
+                        idx = add_memory_to_cache(args['summary'], args['full_memory'])
+                        memory_cache_modified = True
+                        tool_result = f'Global memory saved to cache. Index {idx}.'
+                    except Exception:
+                        idx = save_memory(args['summary'], args['full_memory'])
+                        tool_result = f'Global memory saved. Index {idx}.'
 
             elif name == 'get_memory_detail':
                 if args.get('user_memory'):
@@ -627,6 +650,12 @@ async def send_message(message, system_msg=None, force_response=False, functions
                     json.dump(freewill_attempts, f, indent=2)
             except Exception:
                 pass
+        try:
+            if memory_cache_modified:
+                flush_memory_cache()
+        except Exception:
+            if DEBUG:
+                print("Failed to flush memory cache after cancelled response")
         return
 
     content = await process_response(msg_obj.content, message.guild, count)
@@ -656,6 +685,17 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 json.dump(freewill_attempts, f, indent=2)
         except Exception:
             pass
+
+    try:
+        if memory_cache_modified:
+            flush_memory_cache()
+            try:
+                load_memory_cache()
+            except Exception:
+                pass
+    except Exception:
+        if DEBUG:
+            print("Failed to flush memory cache after response")
 
     # super-duper epic reactions yay
     if config.REACTIONS and msg_obj.function_call and msg_obj.function_call.name == 'add_reaction':

@@ -8,6 +8,8 @@ from credentials import MEMORY_KEY_B64
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 MEMORIES_FILE = FULL_MEMORY_FILE
+_MEMORIES_CACHE = None
+_USER_MEMORIES_CACHE = None
 
 
 def _get_key() -> bytes:
@@ -71,7 +73,62 @@ def init_memory_files():
         _write_json_encrypted(USER_MEMORIES_FILE, {})
 
 
+def load_memory_cache():
+    global _MEMORIES_CACHE, _USER_MEMORIES_CACHE
+    data = _read_json_encrypted(MEMORIES_FILE) or {"summaries": [], "memories": []}
+    _MEMORIES_CACHE = {"summaries": list(data.get("summaries", [])), "memories": list(data.get("memories", []))}
+    udata = _read_json_encrypted(USER_MEMORIES_FILE) or {}
+    # deep copy
+    _USER_MEMORIES_CACHE = {k: {"summaries": list(v.get("summaries", [])), "memories": list(v.get("memories", []))} for k, v in udata.items()}
+
+
+def add_memory_to_cache(summary: str, full_memory: str) -> int:
+    global _MEMORIES_CACHE
+    if _MEMORIES_CACHE is None:
+        load_memory_cache()
+    if _MEMORIES_CACHE is None:
+        _MEMORIES_CACHE = {"summaries": [], "memories": []}
+    if len(_MEMORIES_CACHE.get("summaries", [])) >= MEMORY_LIMIT:
+        _MEMORIES_CACHE["summaries"].pop(0)
+        _MEMORIES_CACHE["memories"].pop(0)
+    _MEMORIES_CACHE.setdefault("summaries", []).append(summary)
+    _MEMORIES_CACHE.setdefault("memories", []).append(full_memory)
+    return len(_MEMORIES_CACHE.get("summaries", []))
+
+
+def add_user_memory_to_cache(user_id: str, summary: str, full_memory: str) -> int:
+    global _USER_MEMORIES_CACHE
+    user_key = str(user_id)
+    if _USER_MEMORIES_CACHE is None:
+        load_memory_cache()
+    if _USER_MEMORIES_CACHE is None:
+        _USER_MEMORIES_CACHE = {}
+    if user_key not in _USER_MEMORIES_CACHE:
+        _USER_MEMORIES_CACHE[user_key] = {"summaries": [], "memories": []}
+    if len(_USER_MEMORIES_CACHE[user_key].get("summaries", [])) >= MEMORY_LIMIT:
+        _USER_MEMORIES_CACHE[user_key]["summaries"].pop(0)
+        _USER_MEMORIES_CACHE[user_key]["memories"].pop(0)
+    _USER_MEMORIES_CACHE[user_key].setdefault("summaries", []).append(summary)
+    _USER_MEMORIES_CACHE[user_key].setdefault("memories", []).append(full_memory)
+    return len(_USER_MEMORIES_CACHE[user_key].get("summaries", []))
+
+
+def flush_memory_cache():
+    global _MEMORIES_CACHE, _USER_MEMORIES_CACHE
+    if _MEMORIES_CACHE is not None:
+        try:
+            _write_json_encrypted(MEMORIES_FILE, {"summaries": _MEMORIES_CACHE.get("summaries", []), "memories": _MEMORIES_CACHE.get("memories", [])})
+        except Exception:
+            raise
+    if _USER_MEMORIES_CACHE is not None:
+        try:
+            _write_json_encrypted(USER_MEMORIES_FILE, _USER_MEMORIES_CACHE)
+        except Exception:
+            raise
+
+
 def save_memory(summary: str, full_memory: str) -> int:
+    global _MEMORIES_CACHE
     data = _read_json_encrypted(MEMORIES_FILE)
     if data is None:
         data = {"summaries": [], "memories": []}
@@ -81,23 +138,37 @@ def save_memory(summary: str, full_memory: str) -> int:
     data.setdefault("summaries", []).append(summary)
     data.setdefault("memories", []).append(full_memory)
     _write_json_encrypted(MEMORIES_FILE, data)
+    if _MEMORIES_CACHE is not None:
+        _MEMORIES_CACHE.setdefault("summaries", []).append(summary)
+        _MEMORIES_CACHE.setdefault("memories", []).append(full_memory)
+        if len(_MEMORIES_CACHE.get("summaries", [])) > MEMORY_LIMIT:
+            _MEMORIES_CACHE["summaries"].pop(0)
+            _MEMORIES_CACHE["memories"].pop(0)
     return len(data["summaries"])
 
 
 def get_memory_detail(index: int) -> str:
-    data = _read_json_encrypted(MEMORIES_FILE) or {"memories": []}
-    memories = data.get("memories", [])
+    global _MEMORIES_CACHE
+    if _MEMORIES_CACHE is not None:
+        memories = _MEMORIES_CACHE.get("memories", [])
+    else:
+        data = _read_json_encrypted(MEMORIES_FILE) or {"memories": []}
+        memories = data.get("memories", [])
     if 1 <= index <= len(memories):
         return memories[index - 1]
     return ""
 
 
 def get_all_summaries() -> list:
+    global _MEMORIES_CACHE
+    if _MEMORIES_CACHE is not None:
+        return list(_MEMORIES_CACHE.get("summaries", []))
     data = _read_json_encrypted(MEMORIES_FILE) or {"summaries": []}
     return data.get("summaries", [])
 
 
 def save_user_memory(user_id: str, summary: str, full_memory: str) -> int:
+    global _USER_MEMORIES_CACHE
     user_key = str(user_id)
     data = _read_json_encrypted(USER_MEMORIES_FILE) or {}
     if user_key not in data:
@@ -108,11 +179,24 @@ def save_user_memory(user_id: str, summary: str, full_memory: str) -> int:
     data[user_key].setdefault("summaries", []).append(summary)
     data[user_key].setdefault("memories", []).append(full_memory)
     _write_json_encrypted(USER_MEMORIES_FILE, data)
+    if _USER_MEMORIES_CACHE is not None:
+        if user_key not in _USER_MEMORIES_CACHE:
+            _USER_MEMORIES_CACHE[user_key] = {"summaries": [], "memories": []}
+        _USER_MEMORIES_CACHE[user_key].setdefault("summaries", []).append(summary)
+        _USER_MEMORIES_CACHE[user_key].setdefault("memories", []).append(full_memory)
+        if len(_USER_MEMORIES_CACHE[user_key].get("summaries", [])) > MEMORY_LIMIT:
+            _USER_MEMORIES_CACHE[user_key]["summaries"].pop(0)
+            _USER_MEMORIES_CACHE[user_key]["memories"].pop(0)
     return len(data[user_key]["summaries"])
 
 
 def get_user_memory_detail(user_id: str, index: int) -> str:
     user_key = str(user_id)
+    global _USER_MEMORIES_CACHE
+    if _USER_MEMORIES_CACHE is not None and user_key in _USER_MEMORIES_CACHE:
+        memories = _USER_MEMORIES_CACHE[user_key].get("memories", [])
+        if 1 <= index <= len(memories):
+            return memories[index - 1]
     data = _read_json_encrypted(USER_MEMORIES_FILE) or {}
     if user_key in data:
         memories = data[user_key].get("memories", [])
@@ -123,6 +207,9 @@ def get_user_memory_detail(user_id: str, index: int) -> str:
 
 def get_user_summaries(user_id: str) -> list:
     user_key = str(user_id)
+    global _USER_MEMORIES_CACHE
+    if _USER_MEMORIES_CACHE is not None and user_key in _USER_MEMORIES_CACHE:
+        return list(_USER_MEMORIES_CACHE[user_key].get("summaries", []))
     data = _read_json_encrypted(USER_MEMORIES_FILE) or {}
     if user_key in data:
         return data[user_key].get("summaries", [])
