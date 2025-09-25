@@ -41,7 +41,7 @@ from memory import (
 from openai_client import generate_response
 from credentials import token as TOKEN
 from nerdscore import increase_nerdscore
-from metrics import messages_sent, users, servers
+from metrics import messages_sent, update_metrics
 
 from pathlib import Path
 from conversation_manager import ConversationManager, simple_summary
@@ -136,19 +136,6 @@ bot = commands.Bot(command_prefix='/', intents=intents)
 
 import commands
 commands.setup(bot)
-
-# Metrics (unused for now)
-def update_metrics(user_id: int) -> None:
-    try:
-        with open(config.METRICS_FILE, 'r', encoding='utf-8') as f:
-            metrics = json.load(f)
-    except (json.JSONDecodeError, FileNotFoundError):
-        metrics = {}
-    if str(user_id) not in metrics:
-        users.inc()
-        metrics[str(user_id)] = None
-        with open(config.METRICS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(metrics, f, indent=2, ensure_ascii=False)
 
 chatrevive_task_started = False
 
@@ -368,8 +355,6 @@ async def send_message(message, system_msg=None, force_response=False, functions
             pass
         return
     dq.append(now)
-
-    servers.set(len(bot.guilds))
 
     # System prompt building
     channel_id, timestamp = get_channel_by_user(user_id)
