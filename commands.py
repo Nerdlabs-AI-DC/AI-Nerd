@@ -733,4 +733,151 @@ Do not add explanations, punctuation, or extra text.
         else:
             await interaction.response.send_message("You are not authorized to use this command.", ephemeral=True)
 
+    @admin_group.command(name="stats", description="Show detailed bot statistics")
+    async def stats(interaction: Interaction):
+        if interaction.user.id != OWNER_ID:
+            return await interaction.response.send_message("You are not authorized to use this command.", ephemeral=True)
+        await interaction.response.defer(thinking=True, ephemeral=True)
+        proc = psutil.Process(os.getpid())
+        bot_cpu_usage = proc.cpu_percent(interval=5)
+        latency_ms = round(interaction.client.latency * 1000, 2)
+        bot_ram_usage = proc.memory_info().rss / (1024 * 1024)
+        try:
+            uptime_seconds = time.time() - proc.create_time()
+        except Exception:
+            uptime_seconds = 0
+
+        try:
+            with open(config.METRICS_FILE, 'r', encoding='utf-8') as f:
+                metrics_data = json.load(f)
+            user_count_from_file = len(metrics_data)
+        except Exception:
+            user_count_from_file = 0
+
+        try:
+            scores = load_nerdscore()
+            nerdscore_users = len(scores)
+            total_nerdscore = sum(scores.values()) if isinstance(scores, dict) else 0
+            top10 = sorted(scores.items(), key=lambda item: item[1], reverse=True)[:10]
+            top10_lines = []
+            for rank, (user_id, score) in enumerate(top10, start=1):
+                try:
+                    user = await bot.fetch_user(int(user_id))
+                    name = user.name
+                except Exception:
+                    name = f"id:{user_id}"
+                top10_lines.append(f"{rank}. {name} - {score}")
+            top10_str = "\n".join(top10_lines) if top10_lines else "No nerdscore data"
+        except Exception:
+            nerdscore_users = 0
+            total_nerdscore = 0
+            top10_str = "N/A"
+
+        import metrics
+        try:
+            messages_sent = int(metrics.messages_sent._value.get())
+        except Exception:
+            messages_sent = "N/A"
+
+        def load_json(path):
+            try:
+                if os.path.exists(path):
+                    with open(path, 'r', encoding='utf-8') as f:
+                        return json.load(f)
+            except Exception:
+                return None
+            return None
+
+        daily_messages = load_json(config.DAILY_MESSAGE_FILE) or {}
+        recent_freewill = load_json(config.FREEWILL_FILE) or {}
+        recent_questions = load_json(config.RECENT_QUESTIONS_FILE) or {}
+        serversettings = load_json(config.SETTINGS_FILE) or {}
+        daily_quiz = load_json(DAILY_QUIZ_FILE) or {}
+        user_metrics = load_json(METRICS_FILE) or {}
+
+        try:
+            daily_avg_active = "N/A"
+            if isinstance(daily_messages, dict):
+                date_keys = [k for k in daily_messages.keys() if not str(k).startswith('_')]
+                if date_keys:
+                    latest_date = sorted(date_keys)[-1]
+                    latest_data = daily_messages.get(latest_date) or {}
+                    counts = []
+                    for v in latest_data.values():
+                        try:
+                            c = int(v)
+                        except Exception:
+                            continue
+                        if c > 0:
+                            counts.append(c)
+                    if counts:
+                        daily_avg_active = f"{(sum(counts) / len(counts)):.2f}"
+                    else:
+                        daily_avg_active = "0.00"
+        except Exception:
+            daily_avg_active = "N/A"
+
+        try:
+            avg_total_messages = "N/A"
+            if isinstance(user_metrics, dict) and user_metrics:
+                totals = []
+                for val in user_metrics.values():
+                    if isinstance(val, dict):
+                        m = val.get('messages') or val.get('message') or 0
+                        try:
+                            totals.append(int(m))
+                        except Exception:
+                            continue
+                    else:
+                        try:
+                            totals.append(int(val))
+                        except Exception:
+                            continue
+                if totals:
+                    avg_total_messages = f"{(sum(totals) / len(totals)):.2f}"
+                else:
+                    avg_total_messages = "0.00"
+        except Exception:
+            avg_total_messages = "N/A"
+
+        try:
+            from memory import get_all_summaries, USER_MEMORIES_FILE as _UMF
+            all_summaries = get_all_summaries() or []
+            memory_count = len(all_summaries)
+            try:
+                from memory import _read_json_encrypted
+                user_mem_data = _read_json_encrypted(_UMF) or {}
+                user_mem_count = len(user_mem_data.keys()) if isinstance(user_mem_data, dict) else 0
+            except Exception:
+                user_mem_count = "N/A"
+        except Exception:
+            memory_count = "N/A"
+            user_mem_count = "N/A"
+
+        message = (
+            "### 📈 AI Nerd Statistics\n"
+            f"> Latency: {latency_ms} ms\n"
+            f"> CPU Usage: {bot_cpu_usage}%\n"
+            f"> RAM Usage: {bot_ram_usage:.2f} MB\n"
+            f"> Uptime: {int(uptime_seconds)} seconds\n"
+            f"> Server count: {len(bot.guilds)}\n"
+            f"> User count (bot.users): {len(bot.users)}\n"
+            f"> User count (metrics file): {user_count_from_file}\n"
+            f"> Messages sent: {messages_sent}\n"
+            f"> Average daily messages per active user (latest day): {daily_avg_active}\n"
+            f"> Average total messages per user: {avg_total_messages}\n"
+            f"> Nerdscore users: {nerdscore_users}\n"
+            f"> Total nerdscore points: {total_nerdscore}\n"
+            f"> Top nerdscore:\n{top10_str}\n"
+            f"> Memory summaries stored: {memory_count}\n"
+            f"> Users with stored memories: {user_mem_count}\n"
+            f"> Daily message records (days): {len(daily_messages)}\n"
+            f"> Daily quiz records: {len(daily_quiz)}\n"
+            f"> Recent freewill entries: {len(recent_freewill)}\n"
+            f"> Recent questions entries: {len(recent_questions)}\n"
+            f"> Server settings entries: {len(serversettings)}\n"
+            f"> User metrics entries: {len(user_metrics)}\n"
+        )
+        await interaction.followup.send(message, ephemeral=True)
+
     bot.tree.add_command(admin_group)
