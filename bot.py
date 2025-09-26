@@ -517,6 +517,26 @@ async def send_message(message, system_msg=None, force_response=False, functions
             if tool_calls:
                 self.function_call = tool_calls[0] if tool_calls else None
     msg_obj = MsgObj(completion.output_text, getattr(completion, 'tool_calls', None))
+    last_message = None
+    try:
+        async for m in message.channel.history(limit=1):
+            last_message = m
+    except Exception:
+        last_message = None
+
+    force_mention_original = False
+    if last_message and last_message.id != message.id and getattr(last_message, 'created_at', None) and last_message.created_at > message.created_at:
+        if last_message.author.id == message.author.id:
+            if DEBUG:
+                print("Message from same user detected. Cancelling current reply and restarting on the new message.")
+            if is_allowed:
+                return
+            else:
+                return await send_message(last_message, system_msg=system_msg, force_response=force_response, functions=functions)
+        else:
+            if DEBUG:
+                print("Message from different user detected. Will mention the original message when sending the reply.")
+            force_mention_original = True
 
     reply_msg = None
     cancelled = False
@@ -705,7 +725,9 @@ async def send_message(message, system_msg=None, force_response=False, functions
         return
 
     content = await process_response(msg_obj.content, message.guild, count)
-    if reply_msg:
+    if force_mention_original:
+        await message.reply(content, mention_author=True)
+    elif reply_msg:
         await reply_msg.reply(content, mention_author=False)
     elif is_dm or is_allowed or freewill or force_response:
         await message.channel.send(content)
