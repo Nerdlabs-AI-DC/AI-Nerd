@@ -211,6 +211,18 @@ tools = [
         }
     },
     {
+        'name': 'send_split',
+        'description': 'Split the provided message by newline and send each non-empty line as a separate message with a delay (seconds) between them.',
+        'parameters': {
+            'type': 'object',
+            'properties': {
+                'message': {'type': 'string'},
+                'delay': {'type': 'number', 'description': 'Seconds to wait between lines (default 1)'}
+            },
+            'required': ['message']
+        }
+    },
+    {
         'name': 'give_nerdscore',
         'description': 'Give the user some nerdscore.',
         'parameters': {
@@ -580,6 +592,41 @@ async def send_message(message, system_msg=None, force_response=False, functions
                     })
                     break
 
+            elif name == 'send_split':
+                # Send each non-empty line as its own message with a delay between lines.
+                split_message = args.get('message', '')
+                delay = args.get('delay', 1)
+                lines = [l.strip() for l in split_message.splitlines()]
+                sent_lines = 0
+                for line in lines:
+                    if not line:
+                        continue
+                    try:
+                        # Choose channel vs DM behavior similar to normal send
+                        if is_dm or is_allowed or freewill or force_response:
+                            await message.channel.send(line)
+                        else:
+                            await message.reply(line, mention_author=False)
+                        messages_sent.inc()
+                        update_metrics(user_id)
+                        sent_lines += 1
+                    except Exception as e:
+                        if DEBUG:
+                            print(f"Error sending split line: {e}")
+                    try:
+                        await asyncio.sleep(float(delay))
+                    except Exception:
+                        await asyncio.sleep(1)
+                tool_result = f"Sent {sent_lines} lines (split send)."
+                # Prevent the default single-message send
+                cancelled = True
+                messages.append({
+                    "type": "function_call_output",
+                    "call_id": call_id,
+                    "output": json.dumps({"result": tool_result})
+                })
+                break
+
             elif name == 'give_nerdscore':
                 increase_nerdscore(message.author.id, 1)
                 tool_result = f"Nerdscore +1 for {message.author.name}"
@@ -614,23 +661,22 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 "call_id": call_id,
                 "output": json.dumps({"result": tool_result})
             })
-            if cancelled:
-                break
-            completion2 = await generate_response(
-                messages,
-                tools=None,
-                tool_choice=None,
-                channel_id=message.channel.id,
-                instructions=system
-            )
-            msg_obj = MsgObj(completion2.output_text, getattr(completion2, 'tool_calls', None))
+            if not cancelled:
+                completion2 = await generate_response(
+                    messages,
+                    tools=None,
+                    tool_choice=None,
+                    channel_id=message.channel.id,
+                    instructions=system
+                )
+                msg_obj = MsgObj(completion2.output_text, getattr(completion2, 'tool_calls', None))
 
     # Sending response
     if DEBUG:
         print('--- RESPONSE ---')
         print(msg_obj.content)
     # this stupid ai forgets how to call functions sometimes so i added this
-    if isinstance(msg_obj.content, str) and msg_obj.content.strip() in ("cancel_response", "cancel_response()"):
+    if cancelled or (isinstance(msg_obj.content, str) and msg_obj.content.strip() in ("cancel_response", "cancel_response()")):
         if DEBUG:
             print("Cancelling response.")
         # Post-response processing
