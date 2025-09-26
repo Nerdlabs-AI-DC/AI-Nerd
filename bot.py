@@ -613,7 +613,6 @@ async def send_message(message, system_msg=None, force_response=False, functions
                     break
 
             elif name == 'send_split':
-                # Send each non-empty line as its own message with a delay between lines.
                 split_message = args.get('message', '')
                 delay = args.get('delay', 1)
                 lines = [l.strip() for l in split_message.splitlines()]
@@ -622,13 +621,17 @@ async def send_message(message, system_msg=None, force_response=False, functions
                     if not line:
                         continue
                     try:
-                        # Choose channel vs DM behavior similar to normal send
-                        if is_dm or is_allowed or freewill or force_response:
-                            await message.channel.send(line)
+                        if sent_lines == 0:
+                            if force_mention_original:
+                                await message.reply(line, mention_author=False)
+                            elif reply_msg:
+                                await reply_msg.reply(line, mention_author=False)
+                            elif is_dm or is_allowed or freewill or force_response:
+                                await message.channel.send(line)
+                            else:
+                                await message.reply(line, mention_author=False)
                         else:
-                            await message.reply(line, mention_author=False)
-                        messages_sent.inc()
-                        update_metrics(user_id)
+                            await message.channel.send(line)
                         sent_lines += 1
                     except Exception as e:
                         if DEBUG:
@@ -638,7 +641,6 @@ async def send_message(message, system_msg=None, force_response=False, functions
                     except Exception:
                         await asyncio.sleep(1)
                 tool_result = f"Sent {sent_lines} lines (split send)."
-                # Prevent the default single-message send
                 cancelled = True
                 messages.append({
                     "type": "function_call_output",
@@ -700,6 +702,8 @@ async def send_message(message, system_msg=None, force_response=False, functions
         if DEBUG:
             print("Cancelling response.")
         # Post-response processing
+        messages_sent.inc()
+        update_metrics(user_id)
         try:
             save_context(user_id, message.channel.id)
         except Exception:
@@ -726,17 +730,17 @@ async def send_message(message, system_msg=None, force_response=False, functions
 
     content = await process_response(msg_obj.content, message.guild, count)
     if force_mention_original:
-        await message.reply(content, mention_author=True)
+        await message.reply(content, mention_author=False)
     elif reply_msg:
         await reply_msg.reply(content, mention_author=False)
     elif is_dm or is_allowed or freewill or force_response:
         await message.channel.send(content)
     else:
         await message.reply(content, mention_author=False)
-    messages_sent.inc()
-    update_metrics(user_id)
 
     # Post-response processing
+    messages_sent.inc()
+    update_metrics(user_id)
     try:
         save_context(user_id, message.channel.id)
     except Exception:
