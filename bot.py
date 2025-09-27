@@ -488,7 +488,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
     count = None
 
     if freewill:
-            model_to_use = FALLBACK_MODEL
+            model_to_use = MODEL
             completion = await generate_response(
                 messages,
                 tools=local_tools,
