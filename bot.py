@@ -232,12 +232,12 @@ tools = [
     },
     {
         'name': 'add_reaction',
-        'description': 'Add emoji reactions to a message. Can be used to react to user\'s message or your own message after sending.',
+        'description': 'Add emoji reactions to a message.',
         'parameters': {
             'type': 'object',
             'properties': {
                 'emojis': {'type': 'array', 'items': {'type': 'string'}, 'description': 'List of emojis to react with'},
-                'target': {'type': 'string', 'enum': ['user', 'self'], 'description': 'Whether to react to user\'s message or your own message'},
+                'target': {'type': 'integer', 'description': 'The message id of the message to react to'},
                 'send_followup': {'type': 'boolean', 'description': 'Whether to send a follow-up message after reacting'}
             },
             'required': ['emojis', 'target', 'send_followup'],
@@ -654,17 +654,15 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 tool_result = f"Nerdscore +1 for {message.author.name}"
 
             elif name == 'add_reaction' and config.REACTIONS:
-                if isinstance(args.get('emojis'), list) and args.get('target') == 'user':
-                    for emoji in args['emojis']:
-                        try:
-                            await message.add_reaction(emoji)
-                            await asyncio.sleep(0.5)
-                        except Exception as e:
-                            if DEBUG:
-                                print(f"Error adding reaction: {e}")
-                    tool_result = f"Reactions {args['emojis']} added to user message"
-                elif isinstance(args.get('emojis'), list) and args.get('target') == 'self':
-                    tool_result = f"Would react to own message with {args['emojis']}"
+                react_msg = await message.channel.fetch_message(args['target'])
+                for emoji in args['emojis']:
+                    try:
+                        await react_msg.add_reaction(emoji)
+                        await asyncio.sleep(0.5)
+                    except Exception as e:
+                        if DEBUG:
+                            print(f"Error adding reaction: {e}")
+                tool_result = f"Reactions {args['emojis']} added to user message"
                 if args.get("send_followup") is False:
                     cancelled = True
                     messages.append({
@@ -768,23 +766,6 @@ async def send_message(message, system_msg=None, force_response=False, functions
     except Exception:
         if DEBUG:
             print("Failed to flush memory cache after response")
-
-    # super-duper epic reactions yay
-    if config.REACTIONS and msg_obj.function_call and msg_obj.function_call.name == 'add_reaction':
-        args = json.loads(msg_obj.function_call.arguments or '{}')
-        if args.get('target') == 'self' and isinstance(args.get('emojis'), list) and len(args.get('emojis')) > 0:
-            last_message = None
-            async for msg in message.channel.history(limit=1):
-                if msg.author.id == bot.user.id:
-                    last_message = msg
-                    break
-            if last_message:
-                for emoji in args.get('emojis'):
-                    try:
-                        await last_message.add_reaction(emoji)
-                    except Exception as e:
-                        if DEBUG:
-                            print(f"Error adding reaction: {e}")
 
 # Message response
 @bot.event
