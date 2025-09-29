@@ -218,13 +218,29 @@ def get_user_summaries(user_id: str) -> list:
 
 def save_context(user_id: str, channel_id: str) -> None:
     current_time = time.time()
-    context = _read_json_encrypted(CONTEXT_FILE) or {}
+    try:
+        with open(CONTEXT_FILE, 'r', encoding='utf-8') as f:
+            try:
+                context = json.load(f) or {}
+            except Exception:
+                context = {}
+    except FileNotFoundError:
+        context = {}
+    os.makedirs(os.path.dirname(CONTEXT_FILE), exist_ok=True)
     context[str(user_id)] = {"channel_id": channel_id, "timestamp": current_time}
-    _write_json_encrypted(CONTEXT_FILE, context)
+    with open(CONTEXT_FILE, 'w', encoding='utf-8') as f:
+        json.dump(context, f, indent=2, ensure_ascii=False)
 
 
 def get_channel_by_user(user_id: str):
-    context = _read_json_encrypted(CONTEXT_FILE) or {}
+    try:
+        with open(CONTEXT_FILE, 'r', encoding='utf-8') as f:
+            try:
+                context = json.load(f) or {}
+            except Exception:
+                context = {}
+    except FileNotFoundError:
+        context = {}
     data = context.get(str(user_id), {})
     if isinstance(data, dict):
         return data.get("channel_id", ""), data.get("timestamp", 0)
