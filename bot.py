@@ -1,11 +1,9 @@
 import json
 import discord
 import asyncio
-import os
 import time
 from collections import defaultdict, deque
 from discord.ext import commands
-from discord import app_commands
 import config
 import random
 import datetime
