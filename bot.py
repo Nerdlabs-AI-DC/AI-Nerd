@@ -498,7 +498,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
         if last_message.author.id == message.author.id:
             if DEBUG:
                 print("Message from same user detected. Cancelling current reply and restarting on the new message.")
-            if is_allowed:
+            if is_allowed or is_dm:
                 return
             else:
                 return await send_message(last_message, system_msg=system_msg, force_response=force_response, functions=functions)
