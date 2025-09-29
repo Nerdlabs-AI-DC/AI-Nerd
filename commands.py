@@ -7,7 +7,6 @@ import psutil
 import asyncio
 import random
 import time
-import io
 import datetime
 import requests
 import sys
