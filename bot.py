@@ -614,8 +614,9 @@ async def send_message(message, system_msg=None, force_response=False, functions
 
             elif name == 'send_split':
                 split_message = args.get('message', '')
+                processed_message = await process_response(split_message, message.guild, count)
                 delay = args.get('delay', 1)
-                lines = [l.strip() for l in split_message.splitlines()]
+                lines = [l.strip() for l in processed_message.splitlines()]
                 sent_lines = 0
                 for line in lines:
                     if not line:
