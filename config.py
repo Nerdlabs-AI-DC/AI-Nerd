@@ -4,18 +4,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 # Main settings
-RESPOND_TO_PINGS = True
-HISTORY_SIZE = 10
-MODEL = "gpt-5-mini"
-FALLBACK_MODEL = "gpt-5-nano"
-DEBUG = False # I recommend enabling this while testing
-REACTIONS = True # This enables/disables message reactions!
-FREEWILL_MESSAGE_INTERVAL = 600  # Time in seconds between free will message checks (default: 10 minutes)
-MEMORY_LIMIT = 50
-DAILY_MESSAGE_LIMIT = 50
-OWNER_ID = 686109465971392512  # User id of the bot owner (for admin commands)
+RESPOND_TO_PINGS = True # If enabled, the bot will respond when mentioned (default: True)
+HISTORY_SIZE = 10 # Number of previous messages to include in context (default: 10)
+MODEL = "gpt-5-mini" # Main model to use (default: "gpt-5-mini")
+FALLBACK_MODEL = "gpt-5-nano" # Smaller model to use if daily message limit is reached (default: "gpt-5-nano")
+DEBUG = False # Enables debug logging (default: False)
+FREEWILL_MESSAGE_INTERVAL = 600 # Time in seconds between free will message checks (default: 600)
+MEMORY_LIMIT = 50 # Max number of memories to store (per user and global memories) (default: 50)
+DAILY_MESSAGE_LIMIT = 50 # Max number of messages per user per day before switching to fallback model (default: 50)
+OWNER_ID = 686109465971392512 # User id of the bot owner (for admin commands)
 
-# Files
+# File paths
 DATA_DIR = Path("data")
 FULL_MEMORY_FILE = DATA_DIR / "memories.json"
 USER_MEMORIES_FILE = DATA_DIR / "user_memories.json"
@@ -29,7 +28,7 @@ FREEWILL_FILE = DATA_DIR / "recent_freewill.json"
 DAILY_MESSAGE_FILE = DATA_DIR / "daily_message_counts.json"
 
 
-# System prompt
+# Main system message
 def get_system_prompt():
     return f"""# Identity
 
@@ -137,7 +136,7 @@ Break your response naturally, as if you were a person typing several chat bubbl
 Never send only a single line. Each response must contain multiple lines/messages.
 Use send_split whenever no other function is called."""
 
-# Short system prompt for free will
+# Short system message used for free will messages
 SYSTEM_SHORT = """You are AI Nerd 2, the nerdiest chatbot on Discord.
 
 * Use nerdy phrases like “uhm actually” and “according to my calculations”.
@@ -161,7 +160,7 @@ SYSTEM_SHORT = """You are AI Nerd 2, the nerdiest chatbot on Discord.
 * **Reactions**: Use `add_reaction` to add emoji reactions to a message, specifying the emoji.
 * **Replying to messages**: Use `reply` to answer a specific message. If you're not responding to the latest message, always use `reply` to ensure your response is directed correctly."""
 
-# Free will prompt
+# Free will system message (random response)
 FREEWILL = """You have not been requested to respond. Respond if the message falls under any of these conditions:
 A meme is sent,
 The conversation is about something nerdy,
@@ -169,7 +168,7 @@ AI Nerd 2 is mentioned,
 You are in a conversation with user
 If none of these conditions are met, you must always call the cancel_response function."""
 
-# Other free will prompt
+# Free will system message (inactivity message)
 FREEWILL_TIMEOUT = """This channel has been inactive for a while. Respond if the message falls under any of these conditions:
 A meme is sent,
 The conversation is about something nerdy,
