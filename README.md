@@ -40,7 +40,7 @@ By using AI Nerd 2 you agree to the [Terms of Service](https://docs.google.com/d
 - [`openai_client.py`](openai_client.py): Handles OpenAI API calls.
 - [`config.py`](config.py): Configuration and system prompts.
 - [`nerdscore.py`](nerdscore.py): Nerdscore point system management.
-- [`metrics.py`](metrics.py): Sets up message tracking with prometheus (currently unused).
+- [`metrics.py`](metrics.py): Sets up message tracking.
 
 ---
 
