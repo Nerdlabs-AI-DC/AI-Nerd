@@ -625,7 +625,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 increase_nerdscore(message.author.id, 1)
                 tool_result = f"Nerdscore +1 for {message.author.name}"
 
-            elif name == 'add_reaction' and config.REACTIONS:
+            elif name == 'add_reaction':
                 react_msg = await message.channel.fetch_message(args['target'])
                 for emoji in args['emojis']:
                     try:
