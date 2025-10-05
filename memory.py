@@ -2,12 +2,13 @@ import os
 import json
 import time
 import base64
-from config import FULL_MEMORY_FILE, USER_MEMORIES_FILE, CONTEXT_FILE, MEMORY_LIMIT
+from config import MEMORY_LIMIT
 from credentials import MEMORY_KEY_B64
+import storage
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-MEMORIES_FILE = FULL_MEMORY_FILE
+MEMORIES_FILE = 'memories_enc'  # storage blob key
 _MEMORIES_CACHE = None
 _USER_MEMORIES_CACHE = None
 
@@ -40,46 +41,73 @@ def _decrypt_bytes(data_b64: bytes) -> bytes:
     return aesgcm.decrypt(nonce, ciphertext, None)
 
 
-def _read_json_encrypted(path):
-    try:
-        with open(path, 'rb') as f:
-            b = f.read()
-            if not b:
-                return None
-            try:
-                dec = _decrypt_bytes(b)
-                return json.loads(dec.decode('utf-8'))
-            except Exception:
-                try:
-                    return json.loads(b.decode('utf-8'))
-                except Exception:
-                    return None
-    except FileNotFoundError:
+def _read_json_encrypted(path_or_key):
+    key = str(path_or_key)
+    if key == str('memories.json') or key.endswith('memories.json'):
+        key = 'memories_enc'
+    if key == str('user_memories.json') or key.endswith('user_memories.json'):
+        key = 'user_memories_enc'
+    b = storage.get_blob(key) if key in ('memories_enc', 'user_memories_enc') else storage.get_encrypted_blob_for_path(key)
+    if not b:
         return None
+    try:
+        dec = _decrypt_bytes(b)
+        return json.loads(dec.decode('utf-8'))
+    except Exception:
+        try:
+            return json.loads(b.decode('utf-8'))
+        except Exception:
+            return None
 
 
-def _write_json_encrypted(path, obj):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+def _write_json_encrypted(path_or_key, obj):
+    key = str(path_or_key)
+    if key == str('memories.json') or key.endswith('memories.json'):
+        key = 'memories_enc'
+    if key == str('user_memories.json') or key.endswith('user_memories.json'):
+        key = 'user_memories_enc'
     plain = json.dumps(obj, indent=2, ensure_ascii=False).encode('utf-8')
     enc = _encrypt_bytes(plain)
-    with open(path, 'wb') as f:
-        f.write(enc)
+    storage.set_blob(key, enc)
 
 
 def init_memory_files():
     if _read_json_encrypted(MEMORIES_FILE) is None:
         _write_json_encrypted(MEMORIES_FILE, {"summaries": [], "memories": []})
-    if _read_json_encrypted(USER_MEMORIES_FILE) is None:
-        _write_json_encrypted(USER_MEMORIES_FILE, {})
+    if _read_json_encrypted('user_memories_enc') is None:
+        _write_json_encrypted('user_memories_enc', {})
 
 
 def load_memory_cache():
     global _MEMORIES_CACHE, _USER_MEMORIES_CACHE
     data = _read_json_encrypted(MEMORIES_FILE) or {"summaries": [], "memories": []}
-    _MEMORIES_CACHE = {"summaries": list(data.get("summaries", [])), "memories": list(data.get("memories", []))}
-    udata = _read_json_encrypted(USER_MEMORIES_FILE) or {}
-    # deep copy
-    _USER_MEMORIES_CACHE = {k: {"summaries": list(v.get("summaries", [])), "memories": list(v.get("memories", []))} for k, v in udata.items()}
+    if isinstance(data, dict):
+        summaries = list(data.get("summaries", []))
+        memories = list(data.get("memories", []))
+    elif isinstance(data, list):
+        summaries = []
+        memories = list(data)
+    else:
+        summaries = []
+        memories = []
+    _MEMORIES_CACHE = {"summaries": summaries, "memories": memories}
+
+    udata = _read_json_encrypted('user_memories_enc') or {}
+    _USER_MEMORIES_CACHE = {}
+    if isinstance(udata, dict):
+        for k, v in udata.items():
+            if isinstance(v, dict):
+                usum = list(v.get("summaries", []))
+                umem = list(v.get("memories", []))
+            elif isinstance(v, list):
+                usum = []
+                umem = list(v)
+            else:
+                usum = []
+                umem = []
+            _USER_MEMORIES_CACHE[k] = {"summaries": usum, "memories": umem}
+    else:
+        _USER_MEMORIES_CACHE = {}
 
 
 def add_memory_to_cache(summary: str, full_memory: str) -> int:
@@ -122,7 +150,7 @@ def flush_memory_cache():
             raise
     if _USER_MEMORIES_CACHE is not None:
         try:
-            _write_json_encrypted(USER_MEMORIES_FILE, _USER_MEMORIES_CACHE)
+            _write_json_encrypted('user_memories_enc', _USER_MEMORIES_CACHE)
         except Exception:
             raise
 
@@ -170,7 +198,7 @@ def get_all_summaries() -> list:
 def save_user_memory(user_id: str, summary: str, full_memory: str) -> int:
     global _USER_MEMORIES_CACHE
     user_key = str(user_id)
-    data = _read_json_encrypted(USER_MEMORIES_FILE) or {}
+    data = _read_json_encrypted('user_memories_enc') or {}
     if user_key not in data:
         data[user_key] = {"summaries": [], "memories": []}
     if len(data[user_key].get("summaries", [])) >= MEMORY_LIMIT:
@@ -178,7 +206,7 @@ def save_user_memory(user_id: str, summary: str, full_memory: str) -> int:
         data[user_key]["memories"].pop(0)
     data[user_key].setdefault("summaries", []).append(summary)
     data[user_key].setdefault("memories", []).append(full_memory)
-    _write_json_encrypted(USER_MEMORIES_FILE, data)
+    _write_json_encrypted('user_memories_enc', data)
     if _USER_MEMORIES_CACHE is not None:
         if user_key not in _USER_MEMORIES_CACHE:
             _USER_MEMORIES_CACHE[user_key] = {"summaries": [], "memories": []}
@@ -197,7 +225,7 @@ def get_user_memory_detail(user_id: str, index: int) -> str:
         memories = _USER_MEMORIES_CACHE[user_key].get("memories", [])
         if 1 <= index <= len(memories):
             return memories[index - 1]
-    data = _read_json_encrypted(USER_MEMORIES_FILE) or {}
+    data = _read_json_encrypted('user_memories_enc') or {}
     if user_key in data:
         memories = data[user_key].get("memories", [])
         if 1 <= index <= len(memories):
@@ -210,7 +238,7 @@ def get_user_summaries(user_id: str) -> list:
     global _USER_MEMORIES_CACHE
     if _USER_MEMORIES_CACHE is not None and user_key in _USER_MEMORIES_CACHE:
         return list(_USER_MEMORIES_CACHE[user_key].get("summaries", []))
-    data = _read_json_encrypted(USER_MEMORIES_FILE) or {}
+    data = _read_json_encrypted('user_memories_enc') or {}
     if user_key in data:
         return data[user_key].get("summaries", [])
     return []
@@ -218,29 +246,13 @@ def get_user_summaries(user_id: str) -> list:
 
 def save_context(user_id: str, channel_id: str) -> None:
     current_time = time.time()
-    try:
-        with open(CONTEXT_FILE, 'r', encoding='utf-8') as f:
-            try:
-                context = json.load(f) or {}
-            except Exception:
-                context = {}
-    except FileNotFoundError:
-        context = {}
-    os.makedirs(os.path.dirname(CONTEXT_FILE), exist_ok=True)
+    context = storage.get_context() or {}
     context[str(user_id)] = {"channel_id": channel_id, "timestamp": current_time}
-    with open(CONTEXT_FILE, 'w', encoding='utf-8') as f:
-        json.dump(context, f, indent=2, ensure_ascii=False)
+    storage.save_context(context)
 
 
 def get_channel_by_user(user_id: str):
-    try:
-        with open(CONTEXT_FILE, 'r', encoding='utf-8') as f:
-            try:
-                context = json.load(f) or {}
-            except Exception:
-                context = {}
-    except FileNotFoundError:
-        context = {}
+    context = storage.get_context() or {}
     data = context.get(str(user_id), {})
     if isinstance(data, dict):
         return data.get("channel_id", ""), data.get("timestamp", 0)
@@ -249,11 +261,11 @@ def get_channel_by_user(user_id: str):
 
 def delete_user_memories(user_id: str) -> bool:
     key = str(user_id)
-    data = _read_json_encrypted(USER_MEMORIES_FILE) or {}
+    data = _read_json_encrypted('user_memories_enc') or {}
     if key in data:
         try:
             del data[key]
-            _write_json_encrypted(USER_MEMORIES_FILE, data)
+            _write_json_encrypted('user_memories_enc', data)
             return True
         except Exception:
             raise

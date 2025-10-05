@@ -1,58 +1,41 @@
-import json
 import threading
-import os
 import time
-import config
+import storage
 
-METRICS_FILE = config.DATA_DIR / "metrics.json"
 _LOCK = threading.Lock()
 
+
 def update_metrics(user_id: int) -> None:
-    key = str(user_id)
-    try:
-        with open(config.METRICS_FILE, 'r', encoding='utf-8') as f:
-            metrics = json.load(f)
-    except (json.JSONDecodeError, FileNotFoundError):
-        metrics = {}
+	key = str(user_id)
+	metrics = storage.load_metrics() or {}
+	if not isinstance(metrics, dict):
+		metrics = {}
 
-    if not isinstance(metrics, dict):
-        metrics = {}
+	current = metrics.get(key)
+	if isinstance(current, dict):
+		current['messages'] = int(current.get('messages') or 0) + 1
+		metrics[key] = current
+	elif isinstance(current, int):
+		metrics[key] = current + 1
+	else:
+		metrics[key] = 1
 
-    current = metrics.get(key)
-    if isinstance(current, dict):
-        current['messages'] = int(current.get('messages') or 0) + 1
-        metrics[key] = current
-    elif isinstance(current, int):
-        metrics[key] = current + 1
-    else:
-        metrics[key] = 1
-
-    try:
-        with open(config.METRICS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(metrics, f, indent=2, ensure_ascii=False)
-    except Exception:
-        return
-
-def _ensure_file():
-	os.makedirs(os.path.dirname(str(METRICS_FILE)), exist_ok=True)
-	if not METRICS_FILE.exists():
-		METRICS_FILE.write_text(json.dumps({
-			"messages_sent": 0,
-			"updated_at": time.time()
-		}, indent=2), encoding='utf-8')
+	try:
+		storage.save_metrics(metrics)
+	except Exception:
+		return
 
 
 def _load():
-	_ensure_file()
 	try:
-		return json.loads(METRICS_FILE.read_text(encoding='utf-8'))
+		return storage.load_metrics() or {"messages_sent": 0, "updated_at": time.time()}
 	except Exception:
 		return {"messages_sent": 0, "updated_at": time.time()}
 
 
 def _save(data: dict):
 	data["updated_at"] = time.time()
-	METRICS_FILE.write_text(json.dumps(data, indent=2), encoding='utf-8')
+	storage.save_metrics(data)
 
 
 class _ValueHolder:
