@@ -14,18 +14,9 @@ MEMORY_LIMIT = 50 # Max number of memories to store (per user and global memorie
 DAILY_MESSAGE_LIMIT = 50 # Max number of messages per user per day before switching to fallback model (default: 50)
 OWNER_ID = 686109465971392512 # User id of the bot owner (for admin commands)
 
-# File paths
+# Data storage directory path
 DATA_DIR = Path("data")
-FULL_MEMORY_FILE = DATA_DIR / "memories.json"
-USER_MEMORIES_FILE = DATA_DIR / "user_memories.json"
-NERDSCORE_FILE = DATA_DIR / "nerdscoredata.json"
-DAILY_QUIZ_FILE = DATA_DIR / "daily_quiz_records.json"
-RECENT_QUESTIONS_FILE = DATA_DIR / "recent_questions.json"
-SETTINGS_FILE = DATA_DIR / "serversettings.json"
-CONTEXT_FILE = DATA_DIR / "context_memory.json"
-METRICS_FILE = DATA_DIR / "user_metrics.json"
-FREEWILL_FILE = DATA_DIR / "recent_freewill.json"
-DAILY_MESSAGE_FILE = DATA_DIR / "daily_message_counts.json"
+# Json file paths used to be here but ever since i migrated to SQLite this is empty :(
 
 
 # Main system message

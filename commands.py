@@ -11,39 +11,22 @@ import datetime
 import requests
 import sys
 from openai_client import generate_response, generate_image
-from config import DEBUG, DAILY_QUIZ_FILE, RECENT_QUESTIONS_FILE, METRICS_FILE, OWNER_ID
+from config import DEBUG, OWNER_ID
 from nerdscore import get_nerdscore, increase_nerdscore, load_nerdscore
+import storage
 from memory import delete_user_memories
 
 def load_recent_questions():
-    if os.path.exists(RECENT_QUESTIONS_FILE):
-        with open(RECENT_QUESTIONS_FILE, 'r', encoding='utf-8') as f:
-            try:
-                data = json.load(f)
-            except ValueError:
-                data = {}
-    else:
-        data = {}
-    return data
+    return storage.load_recent_questions() or {}
 
 def save_recent_questions(data):
-    with open(RECENT_QUESTIONS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
+    storage.save_recent_questions(data or {})
 
 def load_daily_quiz_records():
-    if os.path.exists(DAILY_QUIZ_FILE):
-        with open(DAILY_QUIZ_FILE, 'r', encoding='utf-8') as f:
-            try:
-                data = json.load(f)
-            except ValueError:
-                data = {}
-    else:
-        data = {}
-    return data
+    return storage.load_daily_quiz_records() or {}
 
 def save_daily_quiz_records(data):
-    with open(DAILY_QUIZ_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
+    storage.save_daily_quiz_records(data or {})
 
 def setup(bot):
     config_group = app_commands.Group(name="config", description="Configuration")
@@ -226,8 +209,7 @@ def setup(bot):
         latency_ms = round(interaction.client.latency * 1000, 2)
         bot_ram_usage = proc.memory_info().rss / (1024 * 1024)
         try:
-            with open(config.METRICS_FILE, 'r', encoding='utf-8') as f:
-                metrics_data = json.load(f)
+            metrics_data = storage.load_metrics() or {}
             user_count = len(metrics_data)
         except Exception:
             user_count = 0
@@ -747,8 +729,7 @@ Do not add explanations, punctuation, or extra text.
             uptime_seconds = 0
 
         try:
-            with open(config.METRICS_FILE, 'r', encoding='utf-8') as f:
-                metrics_data = json.load(f)
+            metrics_data = storage.load_metrics() or {}
             user_count_from_file = len(metrics_data)
         except Exception:
             user_count_from_file = 0
@@ -778,21 +759,12 @@ Do not add explanations, punctuation, or extra text.
         except Exception:
             messages_sent = "N/A"
 
-        def load_json(path):
-            try:
-                if os.path.exists(path):
-                    with open(path, 'r', encoding='utf-8') as f:
-                        return json.load(f)
-            except Exception:
-                return None
-            return None
-
-        daily_messages = load_json(config.DAILY_MESSAGE_FILE) or {}
-        recent_freewill = load_json(config.FREEWILL_FILE) or {}
-        recent_questions = load_json(config.RECENT_QUESTIONS_FILE) or {}
-        serversettings = load_json(config.SETTINGS_FILE) or {}
-        daily_quiz = load_json(DAILY_QUIZ_FILE) or {}
-        user_metrics = load_json(METRICS_FILE) or {}
+        daily_messages = storage.load_daily_counts() or {}
+        recent_freewill = storage.get_freewill_attempts() or {}
+        recent_questions = storage.load_recent_questions() or {}
+        serversettings = storage.load_settings() or {}
+        daily_quiz = storage.load_daily_quiz_records() or {}
+        user_metrics = storage.load_user_metrics() or {}
 
         try:
             daily_avg_active = "N/A"
@@ -840,12 +812,11 @@ Do not add explanations, punctuation, or extra text.
             avg_total_messages = "N/A"
 
         try:
-            from memory import get_all_summaries, USER_MEMORIES_FILE as _UMF
+            from memory import get_all_summaries, _read_json_encrypted
             all_summaries = get_all_summaries() or []
             memory_count = len(all_summaries)
             try:
-                from memory import _read_json_encrypted
-                user_mem_data = _read_json_encrypted(_UMF) or {}
+                user_mem_data = _read_json_encrypted('user_memories_enc') or {}
                 user_mem_count = len(user_mem_data.keys()) if isinstance(user_mem_data, dict) else 0
             except Exception:
                 user_mem_count = "N/A"

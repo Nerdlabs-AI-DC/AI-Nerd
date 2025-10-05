@@ -15,12 +15,8 @@ from config import (
     get_system_prompt,
     SYSTEM_SHORT,
     FREEWILL,
-    SETTINGS_FILE,
-    METRICS_FILE,
     FREEWILL_MESSAGE_INTERVAL,
     FREEWILL_TIMEOUT,
-    FREEWILL_FILE,
-    DAILY_MESSAGE_FILE,
     DAILY_MESSAGE_LIMIT,
     FALLBACK_MODEL,
     MODEL
@@ -44,31 +40,25 @@ from openai_client import generate_response
 from credentials import token as TOKEN
 from nerdscore import increase_nerdscore
 from metrics import messages_sent, update_metrics
+import storage
 
 from pathlib import Path
 
 # Some variable and function definitions
 
 # Settings
-SETTINGS_PATH = Path(SETTINGS_FILE)
-
 def load_settings() -> dict:
-    if not SETTINGS_PATH.exists():
-        SETTINGS_PATH.write_text("{}", encoding="utf-8")
+    try:
+        return storage.load_settings() or {}
+    except Exception:
         return {}
 
-    try:
-        data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, UnicodeDecodeError):
-        data = {}
-
-    if not isinstance(data, dict):
-        data = {}
-
-    return data
 
 def save_settings(settings: dict):
-    SETTINGS_PATH.write_text(json.dumps(settings, indent=4), encoding='utf-8')
+    try:
+        storage.save_settings(settings or {})
+    except Exception:
+        pass
 
 # Rate limiting
 RATE_LIMIT = 10
@@ -78,28 +68,16 @@ user_requests = defaultdict(lambda: deque())
 # Daily message counters
 from datetime import datetime, timezone, timedelta
 
-DAILY_PATH = Path(DAILY_MESSAGE_FILE)
-
 def load_daily_counts():
-    if not DAILY_PATH.exists():
-        try:
-            DAILY_PATH.write_text("{}", encoding='utf-8')
-        except Exception:
-            pass
-        return {}
     try:
-        with open(DAILY_PATH, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-    except (json.JSONDecodeError, FileNotFoundError):
-        data = {}
-    if not isinstance(data, dict):
-        data = {}
-    return data
+        return storage.load_daily_counts() or {}
+    except Exception:
+        return {}
+
 
 def save_daily_counts(data: dict):
     try:
-        with open(DAILY_PATH, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2)
+        storage.save_daily_counts(data or {})
     except Exception:
         pass
 
@@ -678,14 +656,12 @@ async def send_message(message, system_msg=None, force_response=False, functions
             pass
         if system_msg == FREEWILL_TIMEOUT:
             try:
-                with open(config.FREEWILL_FILE, 'r', encoding='utf-8') as f:
-                    freewill_attempts = json.load(f)
-            except (FileNotFoundError, json.JSONDecodeError):
+                freewill_attempts = storage.get_freewill_attempts() or {}
+            except Exception:
                 freewill_attempts = {}
             freewill_attempts[str(channel_id)] = message.id
             try:
-                with open(config.FREEWILL_FILE, 'w', encoding='utf-8') as f:
-                    json.dump(freewill_attempts, f, indent=2)
+                storage.save_freewill_attempts(freewill_attempts)
             except Exception:
                 pass
         try:
@@ -715,14 +691,12 @@ async def send_message(message, system_msg=None, force_response=False, functions
         pass
     if system_msg == FREEWILL_TIMEOUT:
         try:
-            with open(config.FREEWILL_FILE, 'r', encoding='utf-8') as f:
-                freewill_attempts = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
+            freewill_attempts = storage.get_freewill_attempts() or {}
+        except Exception:
             freewill_attempts = {}
         freewill_attempts[str(channel_id)] = message.id
         try:
-            with open(config.FREEWILL_FILE, 'w', encoding='utf-8') as f:
-                json.dump(freewill_attempts, f, indent=2)
+            storage.save_freewill_attempts(freewill_attempts)
         except Exception:
             pass
 
@@ -813,15 +787,13 @@ async def freewill_task():
             print("Running freewill task")
         try:
             try:
-                with open(config.CONTEXT_FILE, 'r', encoding='utf-8') as f:
-                    context = json.load(f)
-            except (FileNotFoundError, json.JSONDecodeError):
+                context = storage.get_context() or {}
+            except Exception:
                 context = {}
 
             try:
-                with open(config.FREEWILL_FILE, 'r', encoding='utf-8') as f:
-                    freewill_attempts = json.load(f)
-            except (FileNotFoundError, json.JSONDecodeError):
+                freewill_attempts = storage.get_freewill_attempts() or {}
+            except Exception:
                 freewill_attempts = {}
 
             settings = load_settings()
