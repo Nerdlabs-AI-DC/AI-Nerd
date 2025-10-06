@@ -831,7 +831,6 @@ Do not add explanations, punctuation, or extra text.
             f"> RAM Usage: {bot_ram_usage:.2f} MB\n"
             f"> Uptime: {int(uptime_seconds)} seconds\n"
             f"> Server count: {len(bot.guilds)}\n"
-            f"> User count (bot.users): {len(bot.users)}\n"
             f"> User count (metrics file): {user_count_from_file}\n"
             f"> Messages sent: {messages_sent}\n"
             f"> Average daily messages per active user (latest day): {daily_avg_active}\n"
