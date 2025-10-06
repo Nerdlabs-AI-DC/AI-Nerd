@@ -4,7 +4,6 @@ import asyncio
 import time
 from collections import defaultdict, deque
 from discord.ext import commands
-import config
 import random
 import datetime
 import re
@@ -894,7 +893,7 @@ async def freewill_task():
         except Exception as e:
             if DEBUG:
                 print(f"Free will task error: {e}")
-        await asyncio.sleep(config.FREEWILL_MESSAGE_INTERVAL)
+        await asyncio.sleep(FREEWILL_MESSAGE_INTERVAL)
 
 # Runs the bot
 if __name__ == '__main__':
