@@ -209,7 +209,7 @@ def setup(bot):
         latency_ms = round(interaction.client.latency * 1000, 2)
         bot_ram_usage = proc.memory_info().rss / (1024 * 1024)
         try:
-            metrics_data = storage.load_metrics() or {}
+            metrics_data = storage.load_user_metrics() or {}
             user_count = len(metrics_data)
         except Exception:
             user_count = 0
@@ -729,7 +729,7 @@ Do not add explanations, punctuation, or extra text.
             uptime_seconds = 0
 
         try:
-            metrics_data = storage.load_metrics() or {}
+            metrics_data = storage.load_user_metrics() or {}
             user_count_from_file = len(metrics_data)
         except Exception:
             user_count_from_file = 0
