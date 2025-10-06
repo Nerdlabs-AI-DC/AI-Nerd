@@ -1,6 +1,5 @@
 from discord import app_commands, Interaction
 import discord
-import config
 import json
 import os
 import psutil

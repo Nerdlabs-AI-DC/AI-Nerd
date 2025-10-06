@@ -41,8 +41,6 @@ from nerdscore import increase_nerdscore
 from metrics import messages_sent, update_metrics
 import storage
 
-from pathlib import Path
-
 # Some variable and function definitions
 
 # Settings
