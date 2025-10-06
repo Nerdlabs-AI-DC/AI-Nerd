@@ -7,7 +7,7 @@ _LOCK = threading.Lock()
 
 def update_metrics(user_id: int) -> None:
 	key = str(user_id)
-	metrics = storage.load_metrics() or {}
+	metrics = storage.load_user_metrics() or {}
 	if not isinstance(metrics, dict):
 		metrics = {}
 
@@ -21,7 +21,7 @@ def update_metrics(user_id: int) -> None:
 		metrics[key] = 1
 
 	try:
-		storage.save_metrics(metrics)
+		storage.save_user_metrics(metrics)
 	except Exception:
 		return
 
