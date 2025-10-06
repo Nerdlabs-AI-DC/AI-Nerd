@@ -116,6 +116,23 @@ bot = commands.Bot(command_prefix='/', intents=intents)
 import commands
 commands.setup(bot)
 
+def check_send_perm(channel: discord.abc.Messageable) -> bool:
+    try:
+        if isinstance(channel, discord.DMChannel):
+            return True
+        guild = getattr(channel, 'guild', None)
+        if guild is None:
+            return True
+        me = guild.me
+        perms = channel.permissions_for(me)
+        can_view = getattr(perms, 'view_channel', True)
+        can_send = getattr(perms, 'send_messages', False)
+        if isinstance(channel, discord.Thread):
+            can_send = can_send or getattr(perms, 'send_messages_in_threads', False)
+        return bool(can_view and can_send)
+    except Exception:
+        return False
+
 chatrevive_task_started = False
 
 async def process_response(text, guild, count):
@@ -249,6 +266,9 @@ async def send_message(message, system_msg=None, force_response=False, functions
 
     # Condition checking & free will
     if message.author.id == bot.user.id and force_response == False:
+        return
+    
+    if not check_send_perm(message.channel):
         return
 
     is_dm = isinstance(message.channel, discord.DMChannel)
