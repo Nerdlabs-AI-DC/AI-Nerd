@@ -9,7 +9,8 @@ import time
 import datetime
 import requests
 import sys
-from openai_client import generate_response, generate_image
+import numpy as np
+from openai_client import generate_response, generate_image, embed_text
 from config import DEBUG, OWNER_ID
 from nerdscore import get_nerdscore, increase_nerdscore, load_nerdscore
 import storage
@@ -26,6 +27,9 @@ def load_daily_quiz_records():
 
 def save_daily_quiz_records(data):
     storage.save_daily_quiz_records(data or {})
+
+def cosine(a, b):
+    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
 def setup(bot):
     config_group = app_commands.Group(name="config", description="Configuration")
@@ -304,32 +308,66 @@ def setup(bot):
                 }
             }
         ]
+        
+        messages = [{'role': 'developer', 'content': f"You are an agent designed to generate trivia questions. Create a trivia question with one correct answer and four incorrect answers. The question should be engaging and suitable for a trivia game.\nQuestion genre: {genre}\nQuestion difficulty: {difficulty}"}]
         user_id = str(interaction.user.id)
         questions_data = load_recent_questions()
-        user_recent = questions_data.get(user_id, [])
-        
-        messages = [{'role': 'system', 'content': f"You are an agent designed to generate trivia questions. Create a trivia question with one correct answer and four incorrect answers. The question should be engaging and suitable for a trivia game.\nQuestion genre: {genre}\nQuestion difficulty: {difficulty}\nDo not create any of the following questions:\n{user_recent}"}]
-        search_messages = [{'role': 'developer', 'content': "You are an agent tasked with gathering interesting and accurate facts that can be used to create trivia questions. Find information about the genre: " + genre}]
-        if DEBUG:
-            print('--- Trivia REQUEST ---')
-            print(json.dumps(messages, ensure_ascii=False, indent=2))
-        completion = await generate_response(
-            messages,
-            tools=tools,
-            tool_choice={"type": "function", "name": "create_trivia"},
-            channel_id=interaction.channel.id
-        )
-        args = {}
-        for item in completion.output:
-            if item.type == "function_call":
-                args = json.loads(item.arguments or "{}")
-        
-        user_recent.append(args["question"])
+
+        MAX_RETRIES = 3
+        for _ in range(MAX_RETRIES):
+            if DEBUG:
+                print('--- TRIVIA REQUEST ---')
+                print(json.dumps(messages, ensure_ascii=False, indent=2))
+            completion = await generate_response(
+                messages,
+                tools=tools,
+                tool_choice={"type": "function", "name": "create_trivia"},
+            )
+            args = {}
+            for item in completion.output:
+                if item.type == "function_call":
+                    args = json.loads(item.arguments or "{}")
+            if DEBUG:
+                print('--- RESPONSE ---')
+                print(args)
+
+            if 'genre' in args:
+                genre = args['genre']
+            if 'difficulty' in args:
+                difficulty = args['difficulty']
+
+            if user_id not in questions_data:
+                questions_data[user_id] = {}
+            if genre not in questions_data[user_id]:
+                questions_data[user_id][genre] = []
+
+            user_recent = questions_data[user_id][genre]
+
+            new_emb = embed_text(args["question"])
+            similar = False
+            for prev in user_recent:
+                if "emb" not in prev:
+                    continue
+                score = cosine(new_emb, np.array(prev["emb"], dtype=np.float32))
+                if DEBUG:
+                    print(f"Cosine similarity with previous question '{prev['q']}': {score}")
+                if score > 0.85:
+                    similar = True
+                    break
+
+            if not similar:
+                break
+        else:
+            await interaction.followup.send("An error occurred while creating the trivia question. Please try again.")
+            return
+
+        user_recent.append({"q": args["question"], "emb": new_emb})
         if len(user_recent) > 50:
             user_recent.pop(0)
-        questions_data[user_id] = user_recent
+        questions_data[user_id][genre] = user_recent
         save_recent_questions(questions_data)
         
+        question_time = time.monotonic()
         view = discord.ui.View()
         buttons_data = [
             {"label": args["correct_answer"], "custom_id": "correct_answer", "correct": True},
@@ -339,10 +377,6 @@ def setup(bot):
             {"label": args["incorrect_answer4"], "custom_id": "option4", "correct": False},
         ]
         random.shuffle(buttons_data)
-        if 'genre' in args:
-            genre = args['genre']
-        if 'difficulty' in args:
-            difficulty = args['difficulty']
         for btn in buttons_data:
             async def callback(interaction: Interaction, btn=btn):
                 if btn["correct"]:
@@ -377,15 +411,11 @@ def setup(bot):
             button = discord.ui.Button(label=btn["label"], style=discord.ButtonStyle.primary, custom_id=btn["custom_id"])
             button.callback = callback
             view.add_item(button)
-        if DEBUG:
-            print('--- RESPONSE ---')
-            print(args)
         try:
             await interaction.followup.send(f"### ❔ Trivia\nGenre: {genre}\nDifficulty: {difficulty}\n> {args['question']}", view=view)
         except:
             await interaction.followup.send("An error occurred while creating the trivia question. Please try again.")
             return
-        question_time = time.monotonic()
 
     @fun_group.command(name="tictactoe", description="Play a game of Tic Tac Toe")
     async def tictactoe(interaction: Interaction):

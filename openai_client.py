@@ -34,6 +34,8 @@ async def generate_response(messages, tools=None, tool_choice=None, model=MODEL,
     return completion
 
 def embed_text(text: str) -> list:
+    if DEBUG:
+        print(f"""Embedding text "{text}" with model: {EMBED_MODEL}""")
     resp = _oai.embeddings.create(model=EMBED_MODEL, input=text)
     emb = resp.data[0].embedding
     return emb
