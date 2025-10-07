@@ -2,16 +2,19 @@ import os
 import json
 import time
 import base64
+import math
+import storage
+import numpy as np
 from config import MEMORY_LIMIT
 from credentials import MEMORY_KEY_B64
-import storage
-
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from openai_client import embed_text
 
 MEMORIES_FILE = 'memories_enc'  # storage blob key
+_USER_MEMORIES_FILE = 'user_memories_enc'
+
 _MEMORIES_CACHE = None
 _USER_MEMORIES_CACHE = None
-
 
 def _get_key() -> bytes:
     if not MEMORY_KEY_B64:
@@ -21,14 +24,12 @@ def _get_key() -> bytes:
         raise ValueError("MEMORY key must be 32 bytes for AES-256")
     return key
 
-
 def _encrypt_bytes(plaintext: bytes) -> bytes:
     key = _get_key()
     aesgcm = AESGCM(key)
     nonce = os.urandom(12)
     ciphertext = aesgcm.encrypt(nonce, plaintext, None)
     return base64.urlsafe_b64encode(nonce + ciphertext)
-
 
 def _decrypt_bytes(data_b64: bytes) -> bytes:
     raw = base64.urlsafe_b64decode(data_b64)
@@ -40,14 +41,13 @@ def _decrypt_bytes(data_b64: bytes) -> bytes:
     aesgcm = AESGCM(key)
     return aesgcm.decrypt(nonce, ciphertext, None)
 
-
 def _read_json_encrypted(path_or_key):
     key = str(path_or_key)
     if key == str('memories.json') or key.endswith('memories.json'):
-        key = 'memories_enc'
+        key = MEMORIES_FILE
     if key == str('user_memories.json') or key.endswith('user_memories.json'):
-        key = 'user_memories_enc'
-    b = storage.get_blob(key) if key in ('memories_enc', 'user_memories_enc') else storage.get_encrypted_blob_for_path(key)
+        key = _USER_MEMORIES_FILE
+    b = storage.get_blob(key) if key in (MEMORIES_FILE, _USER_MEMORIES_FILE) else storage.get_encrypted_blob_for_path(key)
     if not b:
         return None
     try:
@@ -59,24 +59,21 @@ def _read_json_encrypted(path_or_key):
         except Exception:
             return None
 
-
 def _write_json_encrypted(path_or_key, obj):
     key = str(path_or_key)
     if key == str('memories.json') or key.endswith('memories.json'):
-        key = 'memories_enc'
+        key = MEMORIES_FILE
     if key == str('user_memories.json') or key.endswith('user_memories.json'):
-        key = 'user_memories_enc'
+        key = _USER_MEMORIES_FILE
     plain = json.dumps(obj, indent=2, ensure_ascii=False).encode('utf-8')
     enc = _encrypt_bytes(plain)
     storage.set_blob(key, enc)
 
-
 def init_memory_files():
     if _read_json_encrypted(MEMORIES_FILE) is None:
         _write_json_encrypted(MEMORIES_FILE, {"summaries": [], "memories": []})
-    if _read_json_encrypted('user_memories_enc') is None:
-        _write_json_encrypted('user_memories_enc', {})
-
+    if _read_json_encrypted(_USER_MEMORIES_FILE) is None:
+        _write_json_encrypted(_USER_MEMORIES_FILE, {})
 
 def load_memory_cache():
     global _MEMORIES_CACHE, _USER_MEMORIES_CACHE
@@ -84,30 +81,41 @@ def load_memory_cache():
     if isinstance(data, dict):
         summaries = list(data.get("summaries", []))
         memories = list(data.get("memories", []))
-    elif isinstance(data, list):
-        summaries = []
-        memories = list(data)
     else:
         summaries = []
         memories = []
     _MEMORIES_CACHE = {"summaries": summaries, "memories": memories}
 
-    udata = _read_json_encrypted('user_memories_enc') or {}
+    udata = _read_json_encrypted(_USER_MEMORIES_FILE) or {}
     _USER_MEMORIES_CACHE = {}
     if isinstance(udata, dict):
         for k, v in udata.items():
             if isinstance(v, dict):
                 usum = list(v.get("summaries", []))
                 umem = list(v.get("memories", []))
-            elif isinstance(v, list):
-                usum = []
-                umem = list(v)
             else:
                 usum = []
                 umem = []
             _USER_MEMORIES_CACHE[k] = {"summaries": usum, "memories": umem}
     else:
         _USER_MEMORIES_CACHE = {}
+
+def _encode_embedding(emb: list) -> str:
+    arr = np.array(emb, dtype=np.float32)
+    return base64.urlsafe_b64encode(arr.tobytes()).decode('ascii')
+
+def _decode_embedding(b64: str) -> np.ndarray:
+    raw = base64.urlsafe_b64decode(b64.encode('ascii'))
+    return np.frombuffer(raw, dtype=np.float32)
+
+def _cosine(a: np.ndarray, b: np.ndarray) -> float:
+    if a.size == 0 or b.size == 0:
+        return 0.0
+    da = np.linalg.norm(a)
+    db = np.linalg.norm(b)
+    if da == 0 or db == 0:
+        return 0.0
+    return float(np.dot(a, b) / (da * db))
 
 
 def add_memory_to_cache(summary: str, full_memory: str) -> int:
@@ -116,13 +124,21 @@ def add_memory_to_cache(summary: str, full_memory: str) -> int:
         load_memory_cache()
     if _MEMORIES_CACHE is None:
         _MEMORIES_CACHE = {"summaries": [], "memories": []}
-    if len(_MEMORIES_CACHE.get("summaries", [])) >= MEMORY_LIMIT:
-        _MEMORIES_CACHE["summaries"].pop(0)
-        _MEMORIES_CACHE["memories"].pop(0)
-    _MEMORIES_CACHE.setdefault("summaries", []).append(summary)
-    _MEMORIES_CACHE.setdefault("memories", []).append(full_memory)
-    return len(_MEMORIES_CACHE.get("summaries", []))
 
+    try:
+        emb = embed_text(summary)
+        emb_b64 = _encode_embedding(emb)
+    except Exception:
+        emb_b64 = ""
+
+    summaries = _MEMORIES_CACHE.setdefault("summaries", [])
+    memories = _MEMORIES_CACHE.setdefault("memories", [])
+    if len(summaries) >= MEMORY_LIMIT:
+        summaries.pop(0)
+        memories.pop(0)
+    summaries.append({"text": summary, "embedding": emb_b64})
+    memories.append(full_memory)
+    return len(summaries)
 
 def add_user_memory_to_cache(user_id: str, summary: str, full_memory: str) -> int:
     global _USER_MEMORIES_CACHE
@@ -133,13 +149,21 @@ def add_user_memory_to_cache(user_id: str, summary: str, full_memory: str) -> in
         _USER_MEMORIES_CACHE = {}
     if user_key not in _USER_MEMORIES_CACHE:
         _USER_MEMORIES_CACHE[user_key] = {"summaries": [], "memories": []}
-    if len(_USER_MEMORIES_CACHE[user_key].get("summaries", [])) >= MEMORY_LIMIT:
-        _USER_MEMORIES_CACHE[user_key]["summaries"].pop(0)
-        _USER_MEMORIES_CACHE[user_key]["memories"].pop(0)
-    _USER_MEMORIES_CACHE[user_key].setdefault("summaries", []).append(summary)
-    _USER_MEMORIES_CACHE[user_key].setdefault("memories", []).append(full_memory)
-    return len(_USER_MEMORIES_CACHE[user_key].get("summaries", []))
 
+    try:
+        emb = embed_text(summary)
+        emb_b64 = _encode_embedding(emb)
+    except Exception:
+        emb_b64 = ""
+
+    usum = _USER_MEMORIES_CACHE[user_key].setdefault("summaries", [])
+    umem = _USER_MEMORIES_CACHE[user_key].setdefault("memories", [])
+    if len(usum) >= MEMORY_LIMIT:
+        usum.pop(0)
+        umem.pop(0)
+    usum.append({"text": summary, "embedding": emb_b64})
+    umem.append(full_memory)
+    return len(usum)
 
 def flush_memory_cache():
     global _MEMORIES_CACHE, _USER_MEMORIES_CACHE
@@ -150,30 +174,44 @@ def flush_memory_cache():
             raise
     if _USER_MEMORIES_CACHE is not None:
         try:
-            _write_json_encrypted('user_memories_enc', _USER_MEMORIES_CACHE)
+            _write_json_encrypted(_USER_MEMORIES_FILE, _USER_MEMORIES_CACHE)
         except Exception:
             raise
-
 
 def save_memory(summary: str, full_memory: str) -> int:
     global _MEMORIES_CACHE
     data = _read_json_encrypted(MEMORIES_FILE)
     if data is None:
         data = {"summaries": [], "memories": []}
+    stored_summaries = data.get("summaries", [])
+    new_summaries = []
+    for s in stored_summaries:
+        if isinstance(s, str):
+            new_summaries.append({"text": s, "embedding": ""})
+        else:
+            new_summaries.append(s)
+    data["summaries"] = new_summaries
     if len(data.get("summaries", [])) >= MEMORY_LIMIT:
         data["summaries"].pop(0)
         data["memories"].pop(0)
-    data.setdefault("summaries", []).append(summary)
+
+    try:
+        emb = embed_text(summary)
+        emb_b64 = _encode_embedding(emb)
+    except Exception:
+        emb_b64 = ""
+
+    data.setdefault("summaries", []).append({"text": summary, "embedding": emb_b64})
     data.setdefault("memories", []).append(full_memory)
     _write_json_encrypted(MEMORIES_FILE, data)
+
     if _MEMORIES_CACHE is not None:
-        _MEMORIES_CACHE.setdefault("summaries", []).append(summary)
+        _MEMORIES_CACHE.setdefault("summaries", []).append({"text": summary, "embedding": emb_b64})
         _MEMORIES_CACHE.setdefault("memories", []).append(full_memory)
         if len(_MEMORIES_CACHE.get("summaries", [])) > MEMORY_LIMIT:
             _MEMORIES_CACHE["summaries"].pop(0)
             _MEMORIES_CACHE["memories"].pop(0)
     return len(data["summaries"])
-
 
 def get_memory_detail(index: int) -> str:
     global _MEMORIES_CACHE
@@ -186,37 +224,53 @@ def get_memory_detail(index: int) -> str:
         return memories[index - 1]
     return ""
 
-
 def get_all_summaries() -> list:
     global _MEMORIES_CACHE
     if _MEMORIES_CACHE is not None:
-        return list(_MEMORIES_CACHE.get("summaries", []))
-    data = _read_json_encrypted(MEMORIES_FILE) or {"summaries": []}
-    return data.get("summaries", [])
-
+        items = _MEMORIES_CACHE.get("summaries", [])
+    else:
+        data = _read_json_encrypted(MEMORIES_FILE) or {"summaries": []}
+        items = data.get("summaries", [])
+    return [s["text"] if isinstance(s, dict) else s for s in items]
 
 def save_user_memory(user_id: str, summary: str, full_memory: str) -> int:
     global _USER_MEMORIES_CACHE
     user_key = str(user_id)
-    data = _read_json_encrypted('user_memories_enc') or {}
+    data = _read_json_encrypted(_USER_MEMORIES_FILE) or {}
     if user_key not in data:
         data[user_key] = {"summaries": [], "memories": []}
+
+    usum = data[user_key].get("summaries", [])
+    new_usum = []
+    for s in usum:
+        if isinstance(s, str):
+            new_usum.append({"text": s, "embedding": ""})
+        else:
+            new_usum.append(s)
+    data[user_key]["summaries"] = new_usum
+
+    try:
+        emb = embed_text(summary)
+        emb_b64 = _encode_embedding(emb)
+    except Exception:
+        emb_b64 = ""
+
     if len(data[user_key].get("summaries", [])) >= MEMORY_LIMIT:
         data[user_key]["summaries"].pop(0)
         data[user_key]["memories"].pop(0)
-    data[user_key].setdefault("summaries", []).append(summary)
+    data[user_key].setdefault("summaries", []).append({"text": summary, "embedding": emb_b64})
     data[user_key].setdefault("memories", []).append(full_memory)
-    _write_json_encrypted('user_memories_enc', data)
+    _write_json_encrypted(_USER_MEMORIES_FILE, data)
+
     if _USER_MEMORIES_CACHE is not None:
         if user_key not in _USER_MEMORIES_CACHE:
             _USER_MEMORIES_CACHE[user_key] = {"summaries": [], "memories": []}
-        _USER_MEMORIES_CACHE[user_key].setdefault("summaries", []).append(summary)
+        _USER_MEMORIES_CACHE[user_key].setdefault("summaries", []).append({"text": summary, "embedding": emb_b64})
         _USER_MEMORIES_CACHE[user_key].setdefault("memories", []).append(full_memory)
         if len(_USER_MEMORIES_CACHE[user_key].get("summaries", [])) > MEMORY_LIMIT:
             _USER_MEMORIES_CACHE[user_key]["summaries"].pop(0)
             _USER_MEMORIES_CACHE[user_key]["memories"].pop(0)
     return len(data[user_key]["summaries"])
-
 
 def get_user_memory_detail(user_id: str, index: int) -> str:
     user_key = str(user_id)
@@ -225,31 +279,68 @@ def get_user_memory_detail(user_id: str, index: int) -> str:
         memories = _USER_MEMORIES_CACHE[user_key].get("memories", [])
         if 1 <= index <= len(memories):
             return memories[index - 1]
-    data = _read_json_encrypted('user_memories_enc') or {}
+    data = _read_json_encrypted(_USER_MEMORIES_FILE) or {}
     if user_key in data:
         memories = data[user_key].get("memories", [])
         if 1 <= index <= len(memories):
             return memories[index - 1]
     return ""
 
-
 def get_user_summaries(user_id: str) -> list:
     user_key = str(user_id)
     global _USER_MEMORIES_CACHE
     if _USER_MEMORIES_CACHE is not None and user_key in _USER_MEMORIES_CACHE:
-        return list(_USER_MEMORIES_CACHE[user_key].get("summaries", []))
-    data = _read_json_encrypted('user_memories_enc') or {}
+        return [s["text"] if isinstance(s, dict) else s for s in _USER_MEMORIES_CACHE[user_key].get("summaries", [])]
+    data = _read_json_encrypted(_USER_MEMORIES_FILE) or {}
     if user_key in data:
-        return data[user_key].get("summaries", [])
+        return [s["text"] if isinstance(s, dict) else s for s in data[user_key].get("summaries", [])]
     return []
 
+def find_relevant_memories(query: str, top_k: int = 5, user_id: str = None) -> list:
+    try:
+        q_emb = embed_text(query)
+        q_vec = np.array(q_emb, dtype=np.float32)
+    except Exception:
+        q_vec = None
+
+    if user_id is not None:
+        data = _USER_MEMORIES_CACHE if _USER_MEMORIES_CACHE is not None else (_read_json_encrypted(_USER_MEMORIES_FILE) or {})
+        user_key = str(user_id)
+        items = []
+        if isinstance(data, dict) and user_key in data:
+            items = data[user_key].get("summaries", [])
+    else:
+        data = _MEMORIES_CACHE if _MEMORIES_CACHE is not None else (_read_json_encrypted(MEMORIES_FILE) or {"summaries": []})
+        items = data.get("summaries", [])
+
+    scored = []
+    for i, s in enumerate(items):
+        if isinstance(s, dict):
+            text = s.get("text", "")
+            emb_b64 = s.get("embedding", "")
+            if q_vec is None or not emb_b64:
+                score = 0.0
+            else:
+                try:
+                    emb_vec = _decode_embedding(emb_b64)
+                    score = _cosine(q_vec, emb_vec)
+                except Exception:
+                    score = 0.0
+        else:
+            text = s
+            score = 0.0
+        scored.append((i + 1, text, float(score)))
+    scored.sort(key=lambda x: x[2], reverse=True)
+    results = []
+    for idx, text, score in scored[:top_k]:
+        results.append({"index": idx, "summary": text, "score": score})
+    return results
 
 def save_context(user_id: str, channel_id: str) -> None:
     current_time = time.time()
     context = storage.get_context() or {}
     context[str(user_id)] = {"channel_id": channel_id, "timestamp": current_time}
     storage.save_context(context)
-
 
 def get_channel_by_user(user_id: str):
     context = storage.get_context() or {}
@@ -258,14 +349,13 @@ def get_channel_by_user(user_id: str):
         return data.get("channel_id", ""), data.get("timestamp", 0)
     return "", 0
 
-
 def delete_user_memories(user_id: str) -> bool:
     key = str(user_id)
-    data = _read_json_encrypted('user_memories_enc') or {}
+    data = _read_json_encrypted(_USER_MEMORIES_FILE) or {}
     if key in data:
         try:
             del data[key]
-            _write_json_encrypted('user_memories_enc', data)
+            _write_json_encrypted(_USER_MEMORIES_FILE, data)
             return True
         except Exception:
             raise

@@ -2,7 +2,7 @@ import asyncio
 import functools
 import base64
 from openai import OpenAI
-from config import MODEL, DEBUG
+from config import MODEL, DEBUG, EMBED_MODEL
 from credentials import openai_key
 
 _oai = OpenAI(api_key=openai_key)
@@ -32,6 +32,11 @@ async def generate_response(messages, tools=None, tool_choice=None, model=MODEL,
         )
     )
     return completion
+
+def embed_text(text: str) -> list:
+    resp = _oai.embeddings.create(model=EMBED_MODEL, input=text)
+    emb = resp.data[0].embedding
+    return emb
 
 async def generate_image(prompt, model="gpt-image-1", filename="image.png"):
     loop = asyncio.get_event_loop()
