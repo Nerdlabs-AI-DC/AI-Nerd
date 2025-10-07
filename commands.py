@@ -566,8 +566,10 @@ Current board state: """ + str(self.board)}
         records = load_daily_quiz_records()
         user_id = str(interaction.user.id)
         today = datetime.datetime.utcnow().date().isoformat()
+
         if records.get(user_id) == today:
             return await interaction.followup.send("You have already taken today's quiz. Try again tomorrow!")
+
         properties = {
             'question': {'type': 'string'},
             'correct_answer': {'type': 'string'}
@@ -584,87 +586,132 @@ Current board state: """ + str(self.board)}
                 }
             }
         ]
+
         questions_data = load_recent_questions()
-        user_recent = questions_data.get(user_id, [])
-        messages = [
-            {'role': 'system', 'content': "You are an agent designed to generate trivia questions. Create a hard trivia question with one short correct answer. Provide five distinct variations of the correct answer, using different grammar or wording, but all conveying the same meaning. Do not include any extra information. Do not create any of the following questions:\n" + str(user_recent)},
-        ]
-        if DEBUG:
-            print('--- DAILY QUIZ REQUEST ---')
-            print(json.dumps(messages, ensure_ascii=False, indent=2))
-        completion = await generate_response(
-            messages,
-            tools=tools,
-            tool_choice={"type": "function", "name": "create_trivia"},
-        )
-        args = {}
-        for item in completion.output:
-            if item.type == "function_call":
-                args = json.loads(item.arguments or "{}")
-        quiz_question = args["question"]
-        correct_answers = [
-            args['correct_answer']
-        ]
-        if DEBUG:
-            print('--- RESPONSE ---')
-            print(args)
+        if user_id not in questions_data:
+            questions_data[user_id] = {}
+        if "DailyQuiz" not in questions_data[user_id]:
+            questions_data[user_id]["DailyQuiz"] = []
+        user_recent = questions_data[user_id]["DailyQuiz"]
+
+        MAX_RETRIES = 3
+        quiz_question = None
+        correct_answers = []
+        for _ in range(MAX_RETRIES):
+            messages = [
+                {
+                    'role': 'developer',
+                    'content': (
+                        "You are an agent designed to generate hard trivia questions for a daily quiz. "
+                        "Create one difficult question with a short correct answer. "
+                        "Do not include any extra information."
+                    )
+                }
+            ]
+            if DEBUG:
+                print('--- DAILY QUIZ REQUEST ---')
+                print(json.dumps(messages, ensure_ascii=False, indent=2))
+
+            completion = await generate_response(
+                messages,
+                tools=tools,
+                tool_choice={"type": "function", "name": "create_trivia"},
+            )
+            args = {}
+            for item in completion.output:
+                if item.type == "function_call":
+                    args = json.loads(item.arguments or "{}")
+
+            if DEBUG:
+                print('--- RESPONSE ---')
+                print(args)
+
+            quiz_question = args.get("question", "")
+            correct_answers = [args.get("correct_answer", "")]
+
+            if not quiz_question:
+                continue
+
+            new_emb = embed_text(quiz_question)
+            similar = False
+            for prev in user_recent:
+                if "emb" not in prev:
+                    continue
+                score = cosine(new_emb, np.array(prev["emb"], dtype=np.float32))
+                if DEBUG:
+                    print(f"Cosine similarity with previous daily quiz '{prev['q']}': {score}")
+                if score > 0.85:
+                    similar = True
+                    break
+            if not similar:
+                break
+        else:
+            await interaction.followup.send("Couldn't come up with a new daily quiz question. Try again later.")
+            return
+
+        user_recent.append({"q": quiz_question, "emb": new_emb})
+        if len(user_recent) > 50:
+            user_recent.pop(0)
+        questions_data[user_id]["DailyQuiz"] = user_recent
+        save_recent_questions(questions_data)
+
         await interaction.followup.send(f"### 🎯 Daily Quiz\n> {quiz_question}\nType your answer now within 30 seconds!")
+
         def check(m):
             return m.author == interaction.user and m.channel == interaction.channel
+
         first_attempt_correct = False
         timeout = False
         try:
             reply = await interaction.client.wait_for("message", timeout=30.0, check=check)
             if any(reply.content.strip().lower() == ans.strip().lower() for ans in correct_answers):
                 first_attempt_correct = True
-            else:  
+            else:
                 checkmessages = [
-                    {'role': 'developer', 'content': f"""You are checking trivia answers. 
-Question: "{quiz_question}" 
-Proposed answer: "{reply.content}" 
-If the proposed answer means the same as the correct answer (even if the spelling or wording is different), output only: True  
-If it is not correct, output only: False  
-Do not add explanations, punctuation, or extra text.
-"""}
+                    {'role': 'developer', 'content': f"""
+    You are checking trivia answers.
+    Question: "{quiz_question}"
+    Proposed answer: "{reply.content}"
+    Correct answer: "{correct_answers[0]}"
+    If the proposed answer means the same as the correct answer (even if the wording differs), output only: True
+    Otherwise output only: False
+    """}
                 ]
                 if DEBUG:
                     print('--- DAILY QUIZ REQUEST ---')
                     print(json.dumps(checkmessages, ensure_ascii=False, indent=2))
-                completion = await generate_response(
-                    checkmessages
-                )
+                completion = await generate_response(checkmessages)
                 if DEBUG:
                     print('--- RESPONSE ---')
                     print(completion.output_text)
-                if completion.output_text == "True":
-                    first_attempt_correct = True
-                else:
-                    first_attempt_correct = False
+                first_attempt_correct = completion.output_text.strip() == "True"
         except asyncio.TimeoutError:
             timeout = True
-            pass
+
         records[user_id] = today
         save_daily_quiz_records(records)
+
         if first_attempt_correct:
             increase_nerdscore(interaction.user.id, 500)
             await interaction.followup.send("Correct! You earned 500 nerdscore.")
             return
-        else:
-            # Offer the retry button
-            class RetryView(discord.ui.View):
-                def __init__(self):
-                    super().__init__(timeout=30)
-                    self.retry_used = False
-                @discord.ui.button(label="Retry", style=discord.ButtonStyle.primary, custom_id="dailyquiz_retry")
-                async def retry_button(self, interaction: Interaction, button: discord.ui.Button):
-                    if get_nerdscore(interaction.user.id) < 250:
-                        await interaction.response.send_message("You need at least 250 nerdscore to retry.", ephemeral=True)
-                        return
-                    await interaction.response.defer(thinking=True)
-                    self.retry_used = True
-                    button.disabled = True
-                    increase_nerdscore(interaction.user.id, -250)
-                    await interaction.message.edit(view=self)
+
+        class RetryView(discord.ui.View):
+            def __init__(self):
+                super().__init__(timeout=30)
+                self.retry_used = False
+            @discord.ui.button(label="Retry", style=discord.ButtonStyle.primary, custom_id="dailyquiz_retry")
+            async def retry_button(self, interaction: Interaction, button: discord.ui.Button):
+                if get_nerdscore(interaction.user.id) < 0:
+                    await interaction.response.send_message("You need at least 250 nerdscore to retry.", ephemeral=True)
+                    return
+                await interaction.response.defer(thinking=True)
+                self.retry_used = True
+                button.disabled = True
+                increase_nerdscore(interaction.user.id, -250)
+                await interaction.message.edit(view=self)
+
+                for _ in range(MAX_RETRIES):
                     if DEBUG:
                         print('--- DAILY QUIZ REQUEST ---')
                         print(json.dumps(messages, ensure_ascii=False, indent=2))
@@ -677,59 +724,81 @@ Do not add explanations, punctuation, or extra text.
                     for item in completion.output:
                         if item.type == "function_call":
                             args = json.loads(item.arguments or "{}")
-                    quiz_question = args["question"]
-                    correct_answers = [
-                        args['correct_answer']
-                    ]
                     if DEBUG:
                         print('--- RESPONSE ---')
                         print(args)
-                    await interaction.followup.send(f"-# You bought a retry for 250 nerdscore\n### 🎯 Daily Quiz\n> {quiz_question}\nType your answer now within 30 seconds!")
-                    try:
-                        retry_reply = await interaction.client.wait_for("message", timeout=30.0, check=check)
-                    except asyncio.TimeoutError:
-                        await interaction.followup.send(f"Time's up! The correct answer was: **{correct_answers[0]}**")
-                        self.stop()
-                        return
-                    if any(retry_reply.content.strip().lower() == ans.strip().lower() for ans in correct_answers):
-                        increase_nerdscore(interaction.user.id, 500)
-                        await interaction.followup.send("Correct! You earned 500 nerdscore.")
-                    else:
-                        checkmessages = [
-                        {'role': 'developer', 'content': f"""You are checking trivia answers. 
-Question: "{quiz_question}" 
-Proposed answer: "{reply.content}" 
-If the proposed answer means the same as the correct answer (even if the spelling or wording is different), output only: True  
-If it is not correct, output only: False  
-Do not add explanations, punctuation, or extra text.
-"""}
+                    quiz_question = args.get("question", "")
+                    correct_answers = [args.get("correct_answer", "")]
+                    if not quiz_question:
+                        continue
+                    new_emb = embed_text(quiz_question)
+                    similar = False
+                    for prev in user_recent:
+                        if "emb" not in prev:
+                            continue
+                        score = cosine(new_emb, np.array(prev["emb"], dtype=np.float32))
+                        if score > 0.85:
+                            similar = True
+                            break
+                    if not similar:
+                        break
+                else:
+                    await interaction.followup.send("Couldn't generate a new question.")
+                    self.stop()
+                    return
+
+                user_recent.append({"q": quiz_question, "emb": new_emb})
+                if len(user_recent) > 50:
+                    user_recent.pop(0)
+                questions_data[user_id]["DailyQuiz"] = user_recent
+                save_recent_questions(questions_data)
+
+                await interaction.followup.send(f"-# You bought a retry for 250 nerdscore\n### 🎯 Daily Quiz\n> {quiz_question}\nType your answer now within 30 seconds!")
+                try:
+                    retry_reply = await interaction.client.wait_for("message", timeout=30.0, check=check)
+                except asyncio.TimeoutError:
+                    await interaction.followup.send(f"Time's up! The correct answer was: **{correct_answers[0]}**")
+                    self.stop()
+                    return
+                if any(retry_reply.content.strip().lower() == ans.strip().lower() for ans in correct_answers):
+                    increase_nerdscore(interaction.user.id, 500)
+                    await interaction.followup.send("Correct! You earned 500 nerdscore.")
+                else:
+                    checkmessages = [
+                        {'role': 'developer', 'content': f"""
+    You are checking trivia answers.
+    Question: "{quiz_question}"
+    Proposed answer: "{retry_reply.content}"
+    Correct answer: "{correct_answers[0]}"
+    If the proposed answer means the same as the correct answer (even if the wording differs), output only: True
+    Otherwise output only: False
+    """}
                     ]
                     if DEBUG:
                         print('--- DAILY QUIZ REQUEST ---')
                         print(json.dumps(checkmessages, ensure_ascii=False, indent=2))
-                    completion = await generate_response(
-                        checkmessages
-                    )
+                    completion = await generate_response(checkmessages)
                     if DEBUG:
                         print('--- RESPONSE ---')
                         print(completion.output_text)
-                    if completion.output_text == "True":
+                    if completion.output_text.strip() == "True":
                         increase_nerdscore(interaction.user.id, 500)
                         await interaction.followup.send("Correct! You earned 500 nerdscore.")
                     else:
                         await interaction.followup.send(f"Incorrect! The correct answer was: **{correct_answers[0]}**")
-                    records[user_id] = today
-                    save_daily_quiz_records(records)
-                    self.stop()
-            view = RetryView()
-            if timeout:
-                await interaction.followup.send(f"Time's up! The correct answer was: **{correct_answers[0]}**\nWould you like to retry by paying 250 nerdscore?", view=view)
-            else:
-                await interaction.followup.send(f"Incorrect! The correct answer was: **{correct_answers[0]}**\nWould you like to retry by paying 250 nerdscore?", view=view)
-            await view.wait()
-            if not view.retry_used:
                 records[user_id] = today
                 save_daily_quiz_records(records)
+                self.stop()
+
+        view = RetryView()
+        msg_text = f"Time's up! The correct answer was: **{correct_answers[0]}**" if timeout else f"Incorrect! The correct answer was: **{correct_answers[0]}**"
+        msg_text += "\nWould you like to retry by paying 250 nerdscore?"
+        await interaction.followup.send(msg_text, view=view)
+        await view.wait()
+        if not view.retry_used:
+            records[user_id] = today
+            save_daily_quiz_records(records)
+
 
     bot.tree.add_command(fun_group)
 

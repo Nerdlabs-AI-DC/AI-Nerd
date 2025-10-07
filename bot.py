@@ -50,7 +50,8 @@ from memory import (
     add_memory_to_cache,
     add_user_memory_to_cache,
     flush_memory_cache,
-    find_relevant_memories
+    find_relevant_memories,
+    embed_text
 )
 from openai_client import generate_response
 from credentials import token as TOKEN
@@ -406,38 +407,43 @@ async def send_message(message, system_msg=None, force_response=False, functions
     if moved:
         history.append({'role': 'system', 'content': 'The conversation has moved to a different channel.'})
 
-    try:
-        relevant_globals = find_relevant_memories(message.content or "", top_k=3, user_id=None)
-        if relevant_globals:
-            summary_list = "\n".join(f"{r['index']}. {r['summary']}" for r in relevant_globals)
-        else:
-            summary_list = "No relevant global memories found."
-    except Exception:
-        summaries = get_all_summaries()
-        summary_list = "\n".join(f"{i+1}. {s}" for i, s in enumerate(summaries))
+    system = ""
+    if freewill:
+        system = SYSTEM_SHORT
+    else:
+        embedded_msg = embed_text(message.content)
+        try:
+            relevant_globals = find_relevant_memories(embedded_msg, top_k=3, user_id=None)
+            if relevant_globals:
+                summary_list = "\n".join(f"{r['index']}. {r['summary']}" for r in relevant_globals)
+            else:
+                summary_list = "No relevant global memories found."
+        except Exception:
+            summaries = get_all_summaries()
+            summary_list = "\n".join(f"{i+1}. {s}" for i, s in enumerate(summaries))
 
-    try:
-        relevant_user = find_relevant_memories(message.content or "", top_k=3, user_id=message.author.id)
-        if relevant_user:
-            user_summaries = "\n".join(f"{r['index']}. {r['summary']}" for r in relevant_user)
-        else:
-            user_summaries = "No relevant user memories found."
-    except Exception:
-        user_summaries_list = get_user_summaries(message.author.id)
-        if user_summaries_list:
-            user_summaries = "\n".join(f"{i+1}. {s}" for i, s in enumerate(user_summaries_list))
-        else:
-            user_summaries = "No user memories found."
+        try:
+            relevant_user = find_relevant_memories(embedded_msg, top_k=3, user_id=message.author.id)
+            if relevant_user:
+                user_summaries = "\n".join(f"{r['index']}. {r['summary']}" for r in relevant_user)
+            else:
+                user_summaries = "No relevant user memories found."
+        except Exception:
+            user_summaries_list = get_user_summaries(message.author.id)
+            if user_summaries_list:
+                user_summaries = "\n".join(f"{i+1}. {s}" for i, s in enumerate(user_summaries_list))
+            else:
+                user_summaries = "No user memories found."
 
-    channel_name = message.channel.name if not is_dm else 'DM'
-    guild_name = message.guild.name if not is_dm else 'DM'
-    system_content = (
-        f"Server: {guild_name}\n"
-        f"Channel: {channel_name}\n\n"
-        f"{get_system_prompt()}\n"
-        f"Relevant global memories:\n{summary_list}\n"
-        f"Relevant user memories for {message.author.name}:\n{user_summaries}"
-    )
+        channel_name = message.channel.name if not is_dm else 'DM'
+        guild_name = message.guild.name if not is_dm else 'DM'
+        system = (
+            f"Server: {guild_name}\n"
+            f"Channel: {channel_name}\n\n"
+            f"{get_system_prompt()}\n"
+            f"Relevant global memories:\n{summary_list}\n"
+            f"Relevant user memories for {message.author.name}:\n{user_summaries}"
+        )
 
     user_content = []
     try:
@@ -454,10 +460,6 @@ async def send_message(message, system_msg=None, force_response=False, functions
     for attach in message.attachments:
         if attach.content_type and attach.content_type.startswith('image/'):
             user_content.append({'type': 'input_image', 'image_url': attach.url})
-        
-    system = system_content
-    if freewill:
-        system = SYSTEM_SHORT
 
     messages = [
     *history,
