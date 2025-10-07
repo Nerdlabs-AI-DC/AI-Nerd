@@ -298,8 +298,7 @@ def get_user_summaries(user_id: str) -> list:
 
 def find_relevant_memories(query: str, top_k: int = 5, user_id: str = None) -> list:
     try:
-        q_emb = embed_text(query)
-        q_vec = np.array(q_emb, dtype=np.float32)
+        q_vec = np.array(query, dtype=np.float32)
     except Exception:
         q_vec = None
 
