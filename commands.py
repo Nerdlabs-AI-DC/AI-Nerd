@@ -646,7 +646,7 @@ Current board state: """ + str(self.board)}
             if not similar:
                 break
         else:
-            await interaction.followup.send("Couldn't come up with a new daily quiz question. Try again later.")
+            await interaction.followup.send("An error occurred while creating the dailyquiz question. Please try again.")
             return
 
         user_recent.append({"q": quiz_question, "emb": new_emb})
@@ -702,13 +702,12 @@ Current board state: """ + str(self.board)}
                 self.retry_used = False
             @discord.ui.button(label="Retry", style=discord.ButtonStyle.primary, custom_id="dailyquiz_retry")
             async def retry_button(self, interaction: Interaction, button: discord.ui.Button):
-                if get_nerdscore(interaction.user.id) < 0:
+                if get_nerdscore(interaction.user.id) < 250:
                     await interaction.response.send_message("You need at least 250 nerdscore to retry.", ephemeral=True)
                     return
                 await interaction.response.defer(thinking=True)
                 self.retry_used = True
                 button.disabled = True
-                increase_nerdscore(interaction.user.id, -250)
                 await interaction.message.edit(view=self)
 
                 for _ in range(MAX_RETRIES):
@@ -743,9 +742,11 @@ Current board state: """ + str(self.board)}
                     if not similar:
                         break
                 else:
-                    await interaction.followup.send("Couldn't generate a new question.")
+                    await interaction.followup.send("An error occurred while creating the dailyquiz question.")
                     self.stop()
                     return
+                
+                increase_nerdscore(interaction.user.id, -250)
 
                 user_recent.append({"q": quiz_question, "emb": new_emb})
                 if len(user_recent) > 50:
