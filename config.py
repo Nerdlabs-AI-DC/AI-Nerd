@@ -13,7 +13,7 @@ MEMORY_TOP_K = 3 # Number of relevant memories to include in context (default: 3
 KNOWLEDGE_TOP_K = 3 # Number of relevant knowledge items to include in context (default: 3)
 DEBUG = False # Enables debug logging (default: False)
 FREEWILL_MESSAGE_INTERVAL = 600 # Time in seconds between free will message checks (default: 600)
-MEMORY_LIMIT = 50 # Max number of memories to store (per user and global memories) (default: 50)
+MEMORY_LIMIT = 100 # Max number of memories to store (per user and global memories) (default: 100)
 DAILY_MESSAGE_LIMIT = 50 # Max number of messages per user per day before switching to fallback model (default: 50)
 OWNER_ID = 686109465971392512 # User id of the bot owner (for admin commands)
 
@@ -35,6 +35,12 @@ KNOWLEDGE_ITEMS = [
     "Users can earn nerdscore by playing and check it with `/fun nerdscore`.",
     "Server admins can use `/config chatrevive-set` to enable chat revive messages, or use `/config chatrevive-set` to disable them.",
     "Server admins can use `/config welcome` to toggle welcome messages.",
+    "The bot may switch to a smaller model temporarily if a user sends too many messages in one day.",
+    "The bot automatically avoids pinging @everyone or @here in its responses.",
+    "The bot always responds in channels where it's activated, in DMs, or when pinged.",
+    "Admins can change how often the bot speaks on its own by adjusting the Free Will rate.",
+    "The bot enforces a short rate limit to prevent spam or flooding.",
+    "Users can delete their personal memory with `/delete-memories`."
 ]
 
 
