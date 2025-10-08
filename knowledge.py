@@ -1,4 +1,3 @@
-import json
 import hashlib
 import numpy as np
 from config import KNOWLEDGE_ITEMS
@@ -7,7 +6,6 @@ from openai_client import embed_text
 from storage import load_knowledge, save_knowledge
 
 def _hash_text(text: str) -> str:
-    import hashlib
     return hashlib.sha256(text.strip().encode("utf-8")).hexdigest()
 
 def sync_knowledge():
