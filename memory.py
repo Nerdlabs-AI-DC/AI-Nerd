@@ -355,6 +355,7 @@ def delete_user_memories(user_id: str) -> bool:
         try:
             del data[key]
             _write_json_encrypted(_USER_MEMORIES_FILE, data)
+            load_memory_cache()
             return True
         except Exception:
             raise
