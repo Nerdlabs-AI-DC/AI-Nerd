@@ -34,7 +34,10 @@ from config import (
     FREEWILL_TIMEOUT,
     DAILY_MESSAGE_LIMIT,
     FALLBACK_MODEL,
-    MODEL
+    MODEL,
+    KNOWLEDGE_ITEMS,
+    MEMORY_TOP_K,
+    KNOWLEDGE_TOP_K
 )
 from memory import (
     init_memory_files,
@@ -58,6 +61,7 @@ from credentials import token as TOKEN
 from nerdscore import increase_nerdscore
 from metrics import messages_sent, update_metrics
 import storage
+from knowledge import sync_knowledge, find_relevant_knowledge
 
 # Some variable and function definitions
 
@@ -130,6 +134,9 @@ bot = commands.Bot(command_prefix='/', intents=intents)
 
 import commands
 commands.setup(bot)
+
+print("Loading knowledge...")
+sync_knowledge()
 
 def check_send_perm(channel: discord.abc.Messageable) -> bool:
     try:
@@ -413,7 +420,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
     else:
         embedded_msg = embed_text(message.content)
         try:
-            relevant_globals = find_relevant_memories(embedded_msg, top_k=3, user_id=None)
+            relevant_globals = find_relevant_memories(embedded_msg, top_k=MEMORY_TOP_K, user_id=None)
             if relevant_globals:
                 summary_list = "\n".join(f"{r['index']}. {r['summary']}" for r in relevant_globals)
             else:
@@ -423,7 +430,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
             summary_list = "\n".join(f"{i+1}. {s}" for i, s in enumerate(summaries))
 
         try:
-            relevant_user = find_relevant_memories(embedded_msg, top_k=3, user_id=message.author.id)
+            relevant_user = find_relevant_memories(embedded_msg, top_k=MEMORY_TOP_K, user_id=message.author.id)
             if relevant_user:
                 user_summaries = "\n".join(f"{r['index']}. {r['summary']}" for r in relevant_user)
             else:
@@ -434,6 +441,15 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 user_summaries = "\n".join(f"{i+1}. {s}" for i, s in enumerate(user_summaries_list))
             else:
                 user_summaries = "No user memories found."
+                
+        try:
+            relevant_knowledge = find_relevant_knowledge(embedded_msg, top_k=KNOWLEDGE_TOP_K)
+            if relevant_knowledge:
+                knowledge_list = "\n".join(f"* {r['text']}" for i, r in enumerate(relevant_knowledge))
+            else:
+                knowledge_list = "No relevant knowledge found."
+        except Exception:
+            knowledge_list = "\n".join(f"* {s}" for i, s in enumerate(KNOWLEDGE_ITEMS))
 
         channel_name = message.channel.name if not is_dm else 'DM'
         guild_name = message.guild.name if not is_dm else 'DM'
@@ -441,6 +457,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
             f"Server: {guild_name}\n"
             f"Channel: {channel_name}\n\n"
             f"{get_system_prompt()}\n"
+            f"Relevant Knowledge:\n{knowledge_list}\n"
             f"Relevant global memories:\n{summary_list}\n"
             f"Relevant user memories for {message.author.name}:\n{user_summaries}"
         )

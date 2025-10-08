@@ -169,3 +169,10 @@ def get_encrypted_blob_for_path(path_name: str):
 
 def set_encrypted_blob_for_path(path_name: str, data: bytes):
     return set_blob(get_blob_key_for_path(path_name), data)
+
+
+def load_knowledge():
+    return get_json('knowledge_data', {}) or {}
+
+def save_knowledge(data: dict):
+    set_json('knowledge_data', data or {})

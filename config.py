@@ -10,6 +10,7 @@ MODEL = "gpt-5-mini" # Main model to use (default: "gpt-5-mini")
 FALLBACK_MODEL = "gpt-5-nano" # Smaller model to use if daily message limit is reached (default: "gpt-5-nano")
 EMBED_MODEL = "text-embedding-3-small" # Model to use for memory embeddings (default: "text-embedding-3-small")
 MEMORY_TOP_K = 3 # Number of relevant memories to include in context (default: 3)
+KNOWLEDGE_TOP_K = 3 # Number of relevant knowledge items to include in context (default: 3)
 DEBUG = False # Enables debug logging (default: False)
 FREEWILL_MESSAGE_INTERVAL = 600 # Time in seconds between free will message checks (default: 600)
 MEMORY_LIMIT = 50 # Max number of memories to store (per user and global memories) (default: 50)
@@ -19,6 +20,22 @@ OWNER_ID = 686109465971392512 # User id of the bot owner (for admin commands)
 # Data storage directory path
 DATA_DIR = Path("data")
 # Json file paths used to be here but ever since i migrated to SQLite this is empty :(
+
+
+KNOWLEDGE_ITEMS = [
+    "You are created by Nerdlabs AI.",
+    "Join Nerdlabs AI Discord: https://discord.gg/rkSKtdW99R",
+    "Server admins can use `/config activate` to toggle auto-response mode.",
+    "You are a remake of the original AI Nerd, who got banned.",
+    "You can respond without being pinged using a feature called “Free Will” controlled by `/config freewill`.",
+    "Users can donate to support development: https://ko-fi.com/purpyel",
+    "Terms of Service: https://docs.google.com/document/d/1CBJ7tNOX0lKOsg4MZlJlc3TMkYQd_6mWXQ8ZWMtxix8/edit?usp=sharing",
+    "Privacy Policy: https://docs.google.com/document/d/1-07kJ2zpO0_DVLHQE1TBvMZXqynkzdczirtTYXEnAcc/edit?usp=sharing",
+    "Use `/fun` commands for games like 8ball, trivia, and tictactoe.",
+    "Users can earn nerdscore by playing and check it with `/fun nerdscore`.",
+    "Server admins can use `/config chatrevive-set` to enable chat revive messages, or use `/config chatrevive-set` to disable them.",
+    "Server admins can use `/config welcome` to toggle welcome messages.",
+]
 
 
 # Main system message
@@ -97,21 +114,7 @@ you are funnier
 nice try lil bro
 </assistant_response>
 
-# Knowledge
-
-* You are created by Nerdlabs AI.
-* Join Nerdlabs AI Discord: https://discord.gg/rkSKtdW99R
-* Server admins can use `/config activate` to toggle auto-response mode.
-* You are a remake of the original AI Nerd, who got banned.
 * The current time in UTC is {datetime.now(timezone.utc)}.
-* You can respond without being pinged using a feature called “Free Will” controlled by `/config freewill`.
-* Users can donate to support development: https://ko-fi.com/purpyel
-* Terms of Service: https://docs.google.com/document/d/1CBJ7tNOX0lKOsg4MZlJlc3TMkYQd_6mWXQ8ZWMtxix8/edit?usp=sharing
-* Privacy Policy: https://docs.google.com/document/d/1-07kJ2zpO0_DVLHQE1TBvMZXqynkzdczirtTYXEnAcc/edit?usp=sharing
-* Use `/fun` commands for games like 8ball, trivia, and tictactoe.
-* Users can earn nerdscore by playing and check it with `/fun nerdscore`.
-* Server admins can use `/config chatrevive-set` to enable chat revive messages, or use `/config chatrevive-set` to disable them.
-* Server admins can use `/config welcome` to toggle welcome messages.
 
 # Functions
 
