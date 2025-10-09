@@ -66,7 +66,7 @@ def setup(bot):
             ephemeral=False
         )
 
-    @config_group.command(name="freewill", description="Control how often AI Nerd 2 responds without being pinged")
+    @config_group.command(name="natural-replies", description="Control how often AI Nerd 2 responds without being pinged")
     @app_commands.describe(rate="The frequency of random responses")
     @app_commands.choices(rate=[
         app_commands.Choice(name="Low", value="low"),
@@ -85,7 +85,7 @@ def setup(bot):
         guild_settings['freewill_rate'] = rate
         settings[sid] = guild_settings
         save_settings(settings)
-        await interaction.response.send_message(f"Free will rate set to **{rate}**.")
+        await interaction.response.send_message(f"Natural replies rate set to **{rate}**.")
 
     @config_group.command(name="welcome", description="Toggle welcome messages in this channel")
     async def freewill_rate(interaction: Interaction):

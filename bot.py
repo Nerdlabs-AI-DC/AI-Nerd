@@ -29,9 +29,9 @@ from config import (
     DEBUG,
     get_system_prompt,
     SYSTEM_SHORT,
-    FREEWILL,
-    FREEWILL_MESSAGE_INTERVAL,
-    FREEWILL_TIMEOUT,
+    NATURAL_REPLIES,
+    NATURAL_REPLIES_INTERVAL,
+    NATURAL_REPLIES_TIMEOUT,
     DAILY_MESSAGE_LIMIT,
     FALLBACK_MODEL,
     MODEL,
@@ -345,7 +345,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
         if random.random() <= chance:
             freewill = True
             if not system_msg:
-                system_msg = FREEWILL
+                system_msg = NATURAL_REPLIES
         else:
             return
     else:
@@ -721,7 +721,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
             save_context(user_id, message.channel.id)
         except Exception:
             pass
-        if system_msg == FREEWILL_TIMEOUT:
+        if system_msg == NATURAL_REPLIES_TIMEOUT:
             try:
                 freewill_attempts = storage.get_freewill_attempts() or {}
             except Exception:
@@ -756,7 +756,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
         save_context(user_id, message.channel.id)
     except Exception:
         pass
-    if system_msg == FREEWILL_TIMEOUT:
+    if system_msg == NATURAL_REPLIES_TIMEOUT:
         try:
             freewill_attempts = storage.get_freewill_attempts() or {}
         except Exception:
@@ -933,7 +933,7 @@ async def freewill_task():
                     try:
                         await send_message(
                             last_message,
-                            system_msg=FREEWILL_TIMEOUT
+                            system_msg=NATURAL_REPLIES_TIMEOUT
                         )
                     except Exception as e:
                         if DEBUG:
@@ -941,7 +941,7 @@ async def freewill_task():
         except Exception as e:
             if DEBUG:
                 print(f"Free will task error: {e}")
-        await asyncio.sleep(FREEWILL_MESSAGE_INTERVAL)
+        await asyncio.sleep(NATURAL_REPLIES_INTERVAL)
 
 # Runs the bot
 if __name__ == '__main__':

@@ -12,7 +12,7 @@ EMBED_MODEL = "text-embedding-3-small" # Model to use for memory embeddings (def
 MEMORY_TOP_K = 3 # Number of relevant memories to include in context (default: 3)
 KNOWLEDGE_TOP_K = 3 # Number of relevant knowledge items to include in context (default: 3)
 DEBUG = False # Enables debug logging (default: False)
-FREEWILL_MESSAGE_INTERVAL = 600 # Time in seconds between free will message checks (default: 600)
+NATURAL_REPLIES_INTERVAL = 600 # Time in seconds between natural replies message checks (default: 600)
 MEMORY_LIMIT = 100 # Max number of memories to store (per user and global memories) (default: 100)
 DAILY_MESSAGE_LIMIT = 50 # Max number of messages per user per day before switching to fallback model (default: 50)
 OWNER_ID = 686109465971392512 # User id of the bot owner (for admin commands)
@@ -25,9 +25,9 @@ DATA_DIR = Path("data")
 KNOWLEDGE_ITEMS = [
     "You are created by Nerdlabs AI.",
     "Join Nerdlabs AI Discord: https://discord.gg/rkSKtdW99R",
-    "Server admins can use `/config activate` to toggle auto-response mode.",
+    "Server admins can use `/config activate` to make the bot respond to every message in a channel.",
     "You are a remake of the original AI Nerd, who got banned.",
-    "You can respond without being pinged using a feature called “Free Will” controlled by `/config freewill`.",
+    "You can respond without being pinged using a feature called “Natural Replies”. The rate can be configured with `/config natural-replies`.",
     "Users can donate to support development: https://ko-fi.com/purpyel",
     "Terms of Service: https://docs.google.com/document/d/1CBJ7tNOX0lKOsg4MZlJlc3TMkYQd_6mWXQ8ZWMtxix8/edit?usp=sharing",
     "Privacy Policy: https://docs.google.com/document/d/1-07kJ2zpO0_DVLHQE1TBvMZXqynkzdczirtTYXEnAcc/edit?usp=sharing",
@@ -38,7 +38,7 @@ KNOWLEDGE_ITEMS = [
     "The bot may switch to a smaller model temporarily if a user sends too many messages in one day.",
     "The bot automatically avoids pinging @everyone or @here in its responses.",
     "The bot always responds in channels where it's activated, in DMs, or when pinged.",
-    "Admins can change how often the bot speaks on its own by adjusting the Free Will rate.",
+    "Admins can change how often the bot speaks on its own by adjusting the Natural Replies rate.",
     "The bot enforces a short rate limit to prevent spam or flooding.",
     "Users can delete their personal memory with `/delete-memories`."
 ]
@@ -95,7 +95,7 @@ Break your response naturally, as if you were a person typing several chat bubbl
 Never send only a single line. Each response must contain multiple lines/messages.
 Use send_split whenever no other function is called."""
 
-# Short system message used for free will messages
+# Short system message used for natural replies messages
 SYSTEM_SHORT = """You are AI Nerd 2, the nerdiest chatbot on Discord.
 
 * Use nerdy phrases like “uhm actually” and “according to my calculations”.
@@ -127,16 +127,16 @@ You are a beleaguered AI who assists the user only because your job description 
 * **Reactions**: Use `add_reaction` to add emoji reactions to a message, specifying the emoji.
 * **Replying to messages**: Use `reply` to answer a specific message. If you're not responding to the latest message, always use `reply` to ensure your response is directed correctly."""
 
-# Free will system message (random response)
-FREEWILL = """You have not been requested to respond. Respond if the message falls under any of these conditions:
+# Natural replies system message (random response)
+NATURAL_REPLIES = """You have not been requested to respond. Respond if the message falls under any of these conditions:
 A meme is sent,
 The conversation is about something nerdy,
 AI Nerd 2 is mentioned,
 You are in a conversation with user
 If none of these conditions are met, you must always call the cancel_response function."""
 
-# Free will system message (inactivity message)
-FREEWILL_TIMEOUT = """This channel has been inactive for a while. Respond if the message falls under any of these conditions:
+# Natural replies system message (inactivity message)
+NATURAL_REPLIES_TIMEOUT = """This channel has been inactive for a while. Respond if the message falls under any of these conditions:
 A meme is sent,
 The conversation is about something nerdy,
 AI Nerd 2 is mentioned,
