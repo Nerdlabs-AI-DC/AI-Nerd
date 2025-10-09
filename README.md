@@ -5,8 +5,8 @@
 ## Features
 ### Chatting
 AI Nerd’s core feature is its ability to respond to and answer messages. You can talk to AI Nerd in DMs, activated channels, or by mentioning it anywhere.
-### Free Will
-AI Nerd can respond on its own without being pinged. It can react to memes, join conversations, and more, all with free will.
+### Natural Replies
+AI Nerd can respond on its own without being pinged. It can react to memes, join conversations, and more, all with natural replies.
 ### Vision
 AI Nerd can view and discuss images you send. This allows it to see memes, assist with tasks, and much more.
 ### Memory
@@ -42,6 +42,7 @@ By using AI Nerd 2 you agree to the [Terms of Service](https://docs.google.com/d
 - [`nerdscore.py`](nerdscore.py): Nerdscore point system management.
 - [`metrics.py`](metrics.py): Handles message count tracking.
 - [`storage.py`](storage.py): Handles data storage.
+- [`knowledge.py`](knowledge.py): Knowledge management functions.
 
 ---
 
