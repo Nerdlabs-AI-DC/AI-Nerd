@@ -590,9 +590,17 @@ Current board state: """ + str(self.board)}
         questions_data = load_recent_questions()
         if user_id not in questions_data:
             questions_data[user_id] = {}
-        if "DailyQuiz" not in questions_data[user_id]:
-            questions_data[user_id]["DailyQuiz"] = []
-        user_recent = questions_data[user_id]["DailyQuiz"]
+
+        genre_counts = {}
+        for g, lst in questions_data[user_id].items():
+            if isinstance(lst, list) and len(lst) > 0:
+                genre_counts[g] = genre_counts.get(g, 0) + len(lst)
+
+        if genre_counts:
+            top_genre = max(genre_counts.items(), key=lambda x: x[1])[0]
+        else:
+            top_genre = "Any"
+        user_recent = questions_data[user_id][top_genre]
 
         MAX_RETRIES = 3
         quiz_question = None
@@ -602,9 +610,10 @@ Current board state: """ + str(self.board)}
                 {
                     'role': 'developer',
                     'content': (
-                        "You are an agent designed to generate hard trivia questions for a daily quiz. "
-                        "Create one difficult question with a short correct answer. "
-                        "Do not include any extra information."
+                        "You are an agent designed to generate trivia questions for a daily quiz. "
+                        "Create one question with a short correct answer. "
+                        "Do not include any extra information.\n"
+                        f"Question genre: {top_genre}"
                     )
                 }
             ]
@@ -652,7 +661,7 @@ Current board state: """ + str(self.board)}
         user_recent.append({"q": quiz_question, "emb": new_emb})
         if len(user_recent) > 50:
             user_recent.pop(0)
-        questions_data[user_id]["DailyQuiz"] = user_recent
+        questions_data[user_id][top_genre] = user_recent
         save_recent_questions(questions_data)
 
         await interaction.followup.send(f"### 🎯 Daily Quiz\n> {quiz_question}\nType your answer now within 30 seconds!")
@@ -669,13 +678,13 @@ Current board state: """ + str(self.board)}
             else:
                 checkmessages = [
                     {'role': 'developer', 'content': f"""
-    You are checking trivia answers.
-    Question: "{quiz_question}"
-    Proposed answer: "{reply.content}"
-    Correct answer: "{correct_answers[0]}"
-    If the proposed answer means the same as the correct answer (even if the wording differs), output only: True
-    Otherwise output only: False
-    """}
+You are checking trivia answers.
+Question: "{quiz_question}"
+Proposed answer: "{reply.content}"
+Correct answer: "{correct_answers[0]}"
+If the proposed answer means the same as the correct answer (even if the wording differs), output only: True
+Otherwise output only: False
+"""}
                 ]
                 if DEBUG:
                     print('--- DAILY QUIZ REQUEST ---')
@@ -751,7 +760,7 @@ Current board state: """ + str(self.board)}
                 user_recent.append({"q": quiz_question, "emb": new_emb})
                 if len(user_recent) > 50:
                     user_recent.pop(0)
-                questions_data[user_id]["DailyQuiz"] = user_recent
+                questions_data[user_id][top_genre] = user_recent
                 save_recent_questions(questions_data)
 
                 await interaction.followup.send(f"-# You bought a retry for 250 nerdscore\n### 🎯 Daily Quiz\n> {quiz_question}\nType your answer now within 30 seconds!")
@@ -767,13 +776,13 @@ Current board state: """ + str(self.board)}
                 else:
                     checkmessages = [
                         {'role': 'developer', 'content': f"""
-    You are checking trivia answers.
-    Question: "{quiz_question}"
-    Proposed answer: "{retry_reply.content}"
-    Correct answer: "{correct_answers[0]}"
-    If the proposed answer means the same as the correct answer (even if the wording differs), output only: True
-    Otherwise output only: False
-    """}
+You are checking trivia answers.
+Question: "{quiz_question}"
+Proposed answer: "{retry_reply.content}"
+Correct answer: "{correct_answers[0]}"
+If the proposed answer means the same as the correct answer (even if the wording differs), output only: True
+Otherwise output only: False
+"""}
                     ]
                     if DEBUG:
                         print('--- DAILY QUIZ REQUEST ---')
