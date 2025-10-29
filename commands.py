@@ -10,8 +10,8 @@ import datetime
 import requests
 import sys
 import numpy as np
-from openai_client import generate_response, generate_image, embed_text
-from config import DEBUG, OWNER_ID
+from openai_client import generate_response, embed_text, edit_image
+from config import DEBUG, OWNER_ID, HALLOWEEN_IMAGE_PROMPT, TEMP_DIR
 from nerdscore import get_nerdscore, increase_nerdscore, load_nerdscore
 import storage
 from memory import delete_user_memories
@@ -958,3 +958,24 @@ Otherwise output only: False
         await interaction.followup.send(message, ephemeral=True)
 
     bot.tree.add_command(admin_group)
+
+    halloween_group = app_commands.Group(name="halloween", description="Halloween event commands")
+
+    @halloween_group.command(name="spookify", description="Remix a photo into Halloween style")
+    async def spookify(interaction: discord.Interaction, attachment: discord.Attachment):
+        await interaction.response.defer()
+
+        # Save input file
+        input_path = os.path.join(TEMP_DIR, f"input_{interaction.id}.png")
+        await attachment.save(input_path)
+
+        # Process image
+        output_file = await edit_image(input_path, HALLOWEEN_IMAGE_PROMPT)
+
+        # Send result
+        await interaction.followup.send(
+            content="haunted your image... kinda cursed tbh",
+            file=discord.File(output_file)
+        )
+
+    bot.tree.add_command(halloween_group)

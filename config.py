@@ -19,8 +19,7 @@ OWNER_ID = 686109465971392512 # User id of the bot owner (for admin commands)
 
 # Data storage directory path
 DATA_DIR = Path("data")
-# Json file paths used to be here but ever since i migrated to SQLite this is empty :(
-
+TEMP_DIR = Path("temp")
 
 KNOWLEDGE_ITEMS = [
     "You are created by Nerdlabs AI.",
@@ -187,3 +186,6 @@ When responding:
 - No real threats or real-world harm, only playful spooky vibes
 
 If none of these conditions are met, you must always call cancel_response."""
+
+HALLOWEEN_IMAGE_PROMPT = """Remix the provided image into a Halloween theme while preserving the original subject and composition.
+Keep the character recognizable. Add subtle spooky atmosphere, soft fog, dim lighting, and orange-purple glow accents. Include small Halloween details such as pumpkins, cute ghosts, glowing runes, cobwebs, candles, or spooky cute accessories."""
