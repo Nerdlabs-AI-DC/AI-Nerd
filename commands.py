@@ -963,6 +963,10 @@ Otherwise output only: False
 
     @halloween_group.command(name="spookify", description="Remix a photo into Halloween style")
     async def spookify(interaction: discord.Interaction, image: discord.Attachment):
+        if not image.content_type or not image.content_type.startswith("image/"):
+            await interaction.response.send_message("This file isn't a valid image.", ephemeral=True)
+            return
+        
         await interaction.response.defer()
 
         input_path = os.path.join(TEMP_DIR, f"input_{interaction.id}.png")
@@ -982,7 +986,7 @@ Otherwise output only: False
                 try:
                     os.remove(input_path)
                     os.remove(output_file)
-                except Exception:
-                    print(f"Failed to clean up temporary files: {Exception}")
+                except Exception as e:
+                    print(f"Failed to clean up temporary files: {e}")
 
     bot.tree.add_command(halloween_group)
