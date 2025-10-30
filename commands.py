@@ -981,6 +981,9 @@ Otherwise output only: False
                 content="### 🎃 Spookify\nYour image has been spookified! 👻",
                 file=discord.File(output_file)
             )
+        
+        except:
+            await interaction.followup.send("An error occurred while spookifying the image.")
 
         finally:
                 try:
