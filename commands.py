@@ -962,20 +962,27 @@ Otherwise output only: False
     halloween_group = app_commands.Group(name="halloween", description="Halloween event commands")
 
     @halloween_group.command(name="spookify", description="Remix a photo into Halloween style")
-    async def spookify(interaction: discord.Interaction, attachment: discord.Attachment):
+    async def spookify(interaction: discord.Interaction, image: discord.Attachment):
         await interaction.response.defer()
 
-        # Save input file
         input_path = os.path.join(TEMP_DIR, f"input_{interaction.id}.png")
-        await attachment.save(input_path)
+        await image.save(input_path)
 
-        # Process image
-        output_file = await edit_image(input_path, HALLOWEEN_IMAGE_PROMPT)
+        output_file = None
 
-        # Send result
-        await interaction.followup.send(
-            content="haunted your image... kinda cursed tbh",
-            file=discord.File(output_file)
-        )
+        try:
+            output_file = await edit_image(input_path, HALLOWEEN_IMAGE_PROMPT, filename=os.path.join(TEMP_DIR, f"spookified_{interaction.id}.png"))
+
+            await interaction.followup.send(
+                content="### 🎃 Spookify\nYour image has been spookified! 👻",
+                file=discord.File(output_file)
+            )
+
+        finally:
+                try:
+                    os.remove(input_path)
+                    os.remove(output_file)
+                except Exception:
+                    print(f"Failed to clean up temporary files: {Exception}")
 
     bot.tree.add_command(halloween_group)
