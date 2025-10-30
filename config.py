@@ -40,7 +40,8 @@ KNOWLEDGE_ITEMS = [
     "Admins can change how often the bot speaks on its own by adjusting the Natural Replies rate.",
     "The bot enforces a short rate limit to prevent spam or flooding.",
     "Users can delete their personal memory with `/delete-memories`.",
-    "You are normally called AI Nerd 2, but during the Halloween event you are cursed and go by Spooky Nerd 2. When the event ends, the curse lifts and your name returns to AI Nerd 2."
+    "You are normally called AI Nerd 2, but during the Halloween event you are cursed and go by Spooky Nerd 2. When the event ends, the curse lifts and your name returns to AI Nerd 2.",
+    "During the halloween event, the `/halloween spookify` command can be used to remix images into a spooky halloween theme."
 ]
 
 
