@@ -384,20 +384,30 @@ async def send_message(message, system_msg=None, force_response=False, functions
         else:
             moved = True
     history = []
-    async for msg in history_channel.history(limit=HISTORY_SIZE+1, oldest_first=False):
+    last_author_id = None
+    last_role = None
+    async for msg in history_channel.history(limit=HISTORY_SIZE*2+1, oldest_first=False):
         if msg.id == message.id:
             continue
+
         if msg.author.id == bot.user.id:
             role = 'assistant'
-            content = msg.content
+            content_item = msg.content or ''
+            if last_role == 'assistant' and last_author_id == msg.author.id and history:
+                prev = history[-1]
+                prev['content'] = (content_item + '\n' + prev['content']).strip()
+            else:
+                history.append({'role': role, 'content': content_item})
+                last_role = role
+                last_author_id = msg.author.id
+
         else:
             role = 'user'
-        if role != 'assistant':
             content = []
             try:
                 replied_message = await msg.channel.fetch_message(msg.reference.message_id)
                 replied_content = replied_message.content
-            except:
+            except Exception:
                 replied_content = None
             if replied_content:
                 content.append({'type': 'input_text', 'text': f"Replying to {replied_message.author.display_name}: {replied_content}"})
@@ -407,7 +417,11 @@ async def send_message(message, system_msg=None, force_response=False, functions
             for attach in msg.attachments:
                 if attach.content_type and attach.content_type.startswith('image/'):
                     content.append({'type': 'input_image', 'image_url': attach.url})
-        history.append({'role': role, 'content': content})
+
+            history.append({'role': role, 'content': content})
+            last_role = role
+            last_author_id = msg.author.id
+
         if len(history) >= HISTORY_SIZE:
             break
     history.reverse()
