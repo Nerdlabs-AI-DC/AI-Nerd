@@ -31,13 +31,17 @@ class BackupManager:
     def _run_loop(self):
         while not self._stop_event.is_set():
             try:
+                delay = self._seconds_until_next_backup()
+                start = time.time()
+                while not self._stop_event.is_set() and time.time() - start < delay:
+                    time.sleep(1)
+
+                if self._stop_event.is_set():
+                    break
+
                 self._make_backup()
             except Exception:
                 pass
-            for _ in range(max(1, int(self.interval // 1))):
-                if self._stop_event.is_set():
-                    break
-                time.sleep(1)
 
     def _make_backup(self):
         if not self.db_path.exists():
@@ -63,18 +67,37 @@ class BackupManager:
         except Exception:
             pass
 
+    def _get_latest_backup_mtime(self):
+        if not self.backups_dir.exists():
+            return None
+        files = [p for p in self.backups_dir.iterdir() if p.is_file()]
+        if not files:
+            return None
+        latest = max(files, key=lambda p: p.stat().st_mtime)
+        try:
+            return datetime.fromtimestamp(latest.stat().st_mtime, timezone.utc)
+        except Exception:
+            return None
+
+    def _seconds_until_next_backup(self):
+        latest = self._get_latest_backup_mtime()
+        now = datetime.now(timezone.utc)
+        if latest is None:
+            return 0
+        next_time = latest + timedelta(seconds=self.interval)
+        delta = (next_time - now).total_seconds()
+        return max(0, int(delta))
+
     def _prune_backups(self):
         files = [p for p in self.backups_dir.iterdir() if p.is_file()]
         if not files:
             return
         cutoff = datetime.now(timezone.utc) - timedelta(days=self.retain_days)
-        removed = False
         for p in files:
             try:
                 mtime = datetime.fromtimestamp(p.stat().st_mtime, timezone.utc)
                 if mtime < cutoff:
                     p.unlink()
-                    removed = True
             except Exception:
                 continue
 
