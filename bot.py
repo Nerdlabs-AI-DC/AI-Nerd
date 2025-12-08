@@ -284,6 +284,17 @@ tools = [
             },
             'required': ['index', 'user_memory']
         }
+    },
+    {
+        'name': 'view_icon',
+        'description': "View a user's profile picture or server icon.",
+        'parameters': {
+            'type': 'object',
+            'properties': {
+                'user_id': {'type': 'integer', 'description': 'The user ID to view the profile picture of. Leave empty to view the profile picture of the message author.'},
+                'server_icon': {'type': 'boolean', 'description': 'If true, view the server icon instead of the user profile picture. Do not use if the current server is a DM.'}
+            }
+        }
     }
 ]
 
@@ -434,7 +445,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
             if replied_content:
                 content.append({'type': 'input_text', 'text': f"Replying to {replied_message.author.display_name}: {replied_content}"})
             content.append({'type': 'input_text', 'text': f"Message ID: {msg.id}"})
-            content.append({'type': 'input_text', 'text': f"Display name: {msg.author.display_name}, Username: {msg.author.name}"})
+            content.append({'type': 'input_text', 'text': f"Display name: {msg.author.display_name}, Username: {msg.author.name}, User ID: {msg.author.id}"})
             content.append({'type': 'input_text', 'text': f"Message content: {msg.content}"})
             for attach in msg.attachments:
                 if attach.content_type and attach.content_type.startswith('image/'):
@@ -508,7 +519,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
         if replied_content:
             user_content.append({'type': 'input_text', 'text': f"Replying to {replied_message.author.display_name}: {replied_content}"})
         user_content.append({'type': 'input_text', 'text': f"Message ID: {message.id}"})
-        user_content.append({'type': 'input_text', 'text': f"Display name: {message.author.display_name}, Username: {message.author.name}"})
+        user_content.append({'type': 'input_text', 'text': f"Display name: {message.author.display_name}, Username: {message.author.name}, User ID: {message.author.id}"})
         user_content.append({'type': 'input_text', 'text': f"Message content: {message.content}"})
     for attach in message.attachments:
         if attach.content_type and attach.content_type.startswith('image/'):
@@ -600,6 +611,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
             args = json.loads(item.arguments or "{}")
             call_id = item.call_id
             tool_result = None
+            is_image = False
 
             if DEBUG:
                 print(f"Function {name} called with args {args}")
@@ -739,11 +751,35 @@ async def send_message(message, system_msg=None, force_response=False, functions
                         tool_result = f'Global memory index {args["index"]} deleted.'
                 except Exception as e:
                     tool_result = f'Error deleting memory: {e}'
+            
+            elif name == 'view_icon':
+                target_user_id = args.get('user_id') or message.author.id
+                server_icon = args.get('server_icon', False)
+                if server_icon and message.guild:
+                    icon_url = message.guild.icon.url if message.guild.icon else None
+                    if icon_url:
+                        tool_result = [{"type": "input_image", "image_url": icon_url}]
+                        is_image = True
+                    else:
+                        tool_result = "This server does not have an icon."
+                else:
+                    try:
+                        target_user = await bot.fetch_user(int(target_user_id))
+                        avatar_url = target_user.display_avatar.url if target_user.display_avatar else None
+                        if avatar_url:
+                            tool_result = [{"type": "input_image", "image_url": avatar_url}]
+                            is_image = True
+                        else:
+                            tool_result = "This user does not have a profile picture."
+                    except Exception as e:
+                        tool_result = f"Error fetching user: {e}"
 
+            if not is_image:
+                tool_result = json.dumps({"result": tool_result})
             messages.append({
                 "type": "function_call_output",
                 "call_id": call_id,
-                "output": json.dumps({"result": tool_result})
+                "output": tool_result
             })
             if not cancelled:
                 completion2 = await generate_response(
