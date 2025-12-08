@@ -1,5 +1,3 @@
 __pycache__/
 .idea
-data/storage.db
-data/storage.db-wal
-data/storage.db-shm
+data/

@@ -64,6 +64,7 @@ from nerdscore import increase_nerdscore
 from metrics import messages_sent, update_metrics
 import storage
 from knowledge import sync_knowledge, find_relevant_knowledge
+from backup import BackupManager
 
 # Some variable and function definitions
 
@@ -139,6 +140,8 @@ commands.setup(bot)
 
 print("Loading knowledge...")
 sync_knowledge()
+
+backup_manager = BackupManager(storage._DB_PATH)
 
 def check_send_perm(channel: discord.abc.Messageable) -> bool:
     try:
@@ -293,6 +296,11 @@ async def on_ready():
     except Exception:
         if DEBUG:
             print("Failed to load memory cache on startup")
+    try:
+        backup_manager.start()
+    except Exception:
+        if DEBUG:
+            print("Failed to start BackupManager")
     await bot.tree.sync()
     print(f"Ready as {bot.user}")
 
