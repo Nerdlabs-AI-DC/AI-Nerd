@@ -224,6 +224,33 @@ def get_memory_detail(index: int) -> str:
         return memories[index - 1]
     return ""
 
+def delete_memory(index: int) -> bool:
+    try:
+        idx = int(index)
+    except Exception:
+        return False
+
+    if idx < 1:
+        return False
+
+    data = _read_json_encrypted(MEMORIES_FILE) or {"summaries": [], "memories": []}
+    summaries = data.get("summaries", [])
+    memories = data.get("memories", [])
+
+    if 1 <= idx <= len(memories):
+        try:
+            memories.pop(idx - 1)
+            if idx - 1 < len(summaries):
+                summaries.pop(idx - 1)
+            data["summaries"] = summaries
+            data["memories"] = memories
+            _write_json_encrypted(MEMORIES_FILE, data)
+            load_memory_cache()
+            return True
+        except Exception:
+            raise
+    return False
+
 def get_all_summaries() -> list:
     global _MEMORIES_CACHE
     if _MEMORIES_CACHE is not None:
@@ -347,6 +374,37 @@ def get_channel_by_user(user_id: str):
     if isinstance(data, dict):
         return data.get("channel_id", ""), data.get("timestamp", 0)
     return "", 0
+
+def delete_user_memory(user_id: str, index: int) -> bool:
+    try:
+        idx = int(index)
+    except Exception:
+        return False
+
+    if idx < 1:
+        return False
+
+    key = str(user_id)
+    data = _read_json_encrypted(_USER_MEMORIES_FILE) or {}
+    if key not in data:
+        return False
+
+    usum = data[key].get("summaries", [])
+    umem = data[key].get("memories", [])
+
+    if 1 <= idx <= len(umem):
+        try:
+            umem.pop(idx - 1)
+            if idx - 1 < len(usum):
+                usum.pop(idx - 1)
+            data[key]["summaries"] = usum
+            data[key]["memories"] = umem
+            _write_json_encrypted(_USER_MEMORIES_FILE, data)
+            load_memory_cache()
+            return True
+        except Exception:
+            raise
+    return False
 
 def delete_user_memories(user_id: str) -> bool:
     key = str(user_id)
