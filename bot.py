@@ -54,7 +54,9 @@ from memory import (
     add_user_memory_to_cache,
     flush_memory_cache,
     find_relevant_memories,
-    embed_text
+    embed_text,
+    delete_memory,
+    delete_user_memory
 )
 from openai_client import generate_response
 from credentials import token as TOKEN
@@ -266,6 +268,18 @@ tools = [
                 'message_id': {'type': 'integer'}
             },
             'required': ['message_id']
+        }
+    },
+    {
+        'name': 'delete_memory',
+        'description': 'Delete a memory by its index.',
+        'parameters': {
+            'type': 'object',
+            'properties': {
+                'index': {'type': 'integer'},
+                'user_memory': {'type': 'boolean'}
+            },
+            'required': ['index', 'user_memory']
         }
     }
 ]
@@ -704,6 +718,19 @@ async def send_message(message, system_msg=None, force_response=False, functions
             elif name == 'reply':
                 reply_msg = await message.channel.fetch_message(args['message_id'])
                 tool_result = f"Reply used on {args['message_id']} (content not auto-sent)."
+
+            elif name == 'delete_memory':
+                try:
+                    if args.get('user_memory'):
+                        delete_user_memory(message.author.id, int(args['index']))
+                        memory_cache_modified = True
+                        tool_result = f'User memory index {args["index"]} deleted.'
+                    else:
+                        delete_memory(int(args['index']))
+                        memory_cache_modified = True
+                        tool_result = f'Global memory index {args["index"]} deleted.'
+                except Exception as e:
+                    tool_result = f'Error deleting memory: {e}'
 
             messages.append({
                 "type": "function_call_output",
