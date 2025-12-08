@@ -604,8 +604,8 @@ Current board state: """ + str(self.board)}
 
         MAX_RETRIES = 3
         quiz_question = None
-        correct_answers = []
-        for _ in range(MAX_RETRIES):
+        skip_similarity = False
+        for attempt in range(MAX_RETRIES):
             messages = [
                 {
                     'role': 'developer',
@@ -617,6 +617,17 @@ Current board state: """ + str(self.board)}
                     )
                 }
             ]
+
+            if attempt >= 2:
+                skip_similarity = True
+                prev_qs = [p.get('q') for p in user_recent[-50:] if p.get('q')]
+                if prev_qs:
+                    exclusion_text = (
+                        "Do not reuse any of these previous questions (exact or paraphrased):\n"
+                        + "\n".join(f"- {q}" for q in prev_qs)
+                    )
+                    messages.append({'role': 'developer', 'content': exclusion_text})
+
             if DEBUG:
                 print('--- DAILY QUIZ REQUEST ---')
                 print(json.dumps(messages, ensure_ascii=False, indent=2))
@@ -640,6 +651,9 @@ Current board state: """ + str(self.board)}
 
             if not quiz_question:
                 continue
+
+            if skip_similarity:
+                break
 
             new_emb = embed_text(quiz_question)
             similar = False
