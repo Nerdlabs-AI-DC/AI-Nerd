@@ -1,4 +1,4 @@
-# AI Nerd 2 version: 1.0.0
+# AI Nerd 2 version: 1.1.0
 
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,7 +19,6 @@ OWNER_ID = 686109465971392512 # User id of the bot owner (for admin commands)
 
 # Data storage directory path
 DATA_DIR = Path("data")
-# Json file paths used to be here but ever since i migrated to SQLite this is empty :(
 
 
 KNOWLEDGE_ITEMS = [
