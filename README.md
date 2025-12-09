@@ -90,6 +90,7 @@ python bot.py
 - [`metrics.py`](metrics.py): Handles message count tracking.
 - [`storage.py`](storage.py): Handles data storage.
 - [`knowledge.py`](knowledge.py): Knowledge management functions.
+- [`backup.py`](backup.py): Database backup management.
 
 ---
 
