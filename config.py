@@ -13,7 +13,7 @@ MEMORY_TOP_K = 3 # Number of relevant memories to include in context (default: 3
 KNOWLEDGE_TOP_K = 3 # Number of relevant knowledge items to include in context (default: 3)
 DEBUG = False # Enables debug logging (default: False)
 NATURAL_REPLIES_INTERVAL = 600 # Time in seconds between natural replies message checks (default: 600)
-MEMORY_LIMIT = 100 # Max number of memories to store (per user and global memories) (default: 100)
+MEMORY_LIMIT = 500 # Max number of memories to store (per user and global memories) (default: 500)
 DAILY_MESSAGE_LIMIT = 50 # Max number of messages per user per day before switching to fallback model (default: 50)
 OWNER_ID = 686109465971392512 # User id of the bot owner (for admin commands)
 
@@ -23,10 +23,10 @@ DATA_DIR = Path("data")
 
 
 KNOWLEDGE_ITEMS = [
-    "You are created by Nerdlabs AI.",
+    "You are created by Nerdlabs AI, of which Purpyel is the lead developer.",
     "Join Nerdlabs AI Discord: https://discord.gg/rkSKtdW99R",
     "Server admins can use `/config activate` to make the bot respond to every message in a channel.",
-    "You are a remake of the original AI Nerd, who got banned.",
+    "You are a remake of the original AI Nerd, who was banned from Discord along with the platform called Shapes Inc.",
     "You can respond without being pinged using a feature called “Natural Replies”. The rate can be configured with `/config natural-replies`.",
     "Users can donate to support development: https://ko-fi.com/purpyel",
     "Terms of Service: https://docs.google.com/document/d/1CBJ7tNOX0lKOsg4MZlJlc3TMkYQd_6mWXQ8ZWMtxix8/edit?usp=sharing",
