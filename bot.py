@@ -176,6 +176,52 @@ async def process_response(text, guild, count):
         text += f"\n-# It seems that you have been chatting a lot today. To reduce costs, a less advanced model will be used for the rest of the day. Responses may be less accurate. Your limit resets <t:{timestamp}:R>."
     return text
 
+
+async def enrich_mentions(text: str, guild: discord.Guild | None) -> str:
+    if not text:
+        return text or ''
+    if guild is None:
+        return text
+
+    role_matches = {m.group(0): int(m.group(1)) for m in re.finditer(r'<@&(\d+)>', text)}
+    for full, rid in role_matches.items():
+        try:
+            role = guild.get_role(rid)
+            if role:
+                replacement = f"{full}[{role.name}]"
+                text = text.replace(full, replacement)
+        except Exception:
+            continue
+
+    user_matches = {m.group(0): int(m.group(1)) for m in re.finditer(r'<@!?(\d+)>', text)}
+    for full, uid in user_matches.items():
+        name = None
+        try:
+            member = guild.get_member(uid)
+            if member:
+                name = member.display_name
+            else:
+                user = bot.get_user(uid)
+                if user:
+                    name = user.name
+                else:
+                    try:
+                        fetched = await bot.fetch_user(uid)
+                        name = fetched.name
+                    except Exception:
+                        name = None
+        except Exception:
+            name = None
+
+        if name:
+            try:
+                replacement = f"{full}[{name}]"
+                text = text.replace(full, replacement)
+            except Exception:
+                pass
+
+    return text
+
 # Functions
 tools = [
     {
@@ -426,6 +472,10 @@ async def send_message(message, system_msg=None, force_response=False, functions
         if msg.author.id == bot.user.id:
             role = 'assistant'
             content_item = msg.content or ''
+            try:
+                content_item = await enrich_mentions(content_item, msg.guild)
+            except Exception:
+                pass
             if last_role == 'assistant' and last_author_id == msg.author.id and history:
                 prev = history[-1]
                 prev['content'] = (content_item + '\n' + prev['content']).strip()
@@ -443,10 +493,18 @@ async def send_message(message, system_msg=None, force_response=False, functions
             except Exception:
                 replied_content = None
             if replied_content:
+                try:
+                    replied_content = await enrich_mentions(replied_content, msg.guild)
+                except Exception:
+                    pass
                 content.append({'type': 'input_text', 'text': f"Replying to {replied_message.author.display_name}: {replied_content}"})
             content.append({'type': 'input_text', 'text': f"Message ID: {msg.id}"})
             content.append({'type': 'input_text', 'text': f"Display name: {msg.author.display_name}, Username: {msg.author.name}, User ID: {msg.author.id}"})
-            content.append({'type': 'input_text', 'text': f"Message content: {msg.content}"})
+            try:
+                enriched = await enrich_mentions(msg.content or '', msg.guild)
+            except Exception:
+                enriched = msg.content or ''
+            content.append({'type': 'input_text', 'text': f"Message content: {enriched}"})
             for attach in msg.attachments:
                 if attach.content_type and attach.content_type.startswith('image/'):
                     content.append({'type': 'input_image', 'image_url': attach.url})
@@ -517,10 +575,18 @@ async def send_message(message, system_msg=None, force_response=False, functions
         replied_content = None
     if message.content:
         if replied_content:
+            try:
+                replied_content = await enrich_mentions(replied_content, message.guild)
+            except Exception:
+                pass
             user_content.append({'type': 'input_text', 'text': f"Replying to {replied_message.author.display_name}: {replied_content}"})
         user_content.append({'type': 'input_text', 'text': f"Message ID: {message.id}"})
         user_content.append({'type': 'input_text', 'text': f"Display name: {message.author.display_name}, Username: {message.author.name}, User ID: {message.author.id}"})
-        user_content.append({'type': 'input_text', 'text': f"Message content: {message.content}"})
+        try:
+            enriched_msg = await enrich_mentions(message.content or '', message.guild)
+        except Exception:
+            enriched_msg = message.content or ''
+        user_content.append({'type': 'input_text', 'text': f"Message content: {enriched_msg}"})
     for attach in message.attachments:
         if attach.content_type and attach.content_type.startswith('image/'):
             user_content.append({'type': 'input_image', 'image_url': attach.url})
