@@ -37,7 +37,9 @@ from config import (
     MODEL,
     KNOWLEDGE_ITEMS,
     MEMORY_TOP_K,
-    KNOWLEDGE_TOP_K
+    KNOWLEDGE_TOP_K,
+    NEWS_SUBREDDITS,
+    EVEN_SHORTER_SYSTEM
 )
 from memory import (
     init_memory_files,
@@ -58,7 +60,7 @@ from memory import (
     delete_memory,
     delete_user_memory
 )
-from openai_client import generate_response
+from openai_client import generate_response, get_subreddit_posts
 from credentials import token as TOKEN
 from nerdscore import increase_nerdscore
 from metrics import messages_sent, update_metrics
@@ -222,6 +224,18 @@ async def enrich_mentions(text: str, guild: discord.Guild | None) -> str:
 
     return text
 
+async def get_news_posts():
+    all_posts = []
+
+    for sub in NEWS_SUBREDDITS:
+        titles = get_subreddit_posts(sub, 3)
+        for t in titles:
+            all_posts.append(t)
+
+    return all_posts
+
+status = None
+
 # Functions
 tools = [
     {
@@ -360,9 +374,17 @@ async def on_ready():
             print("Failed to start BackupManager")
     await bot.tree.sync()
     print(f"Ready as {bot.user}")
+    try:
+        if not hasattr(bot, 'status_task'):
+            bot.status_task = bot.loop.create_task(update_status())
+    except Exception:
+        if DEBUG:
+            print("Failed to start status update task")
+
 
 # Main message handler
 async def send_message(message, system_msg=None, force_response=False, functions=True):
+    global status
     start_time = time.time()
 
     # Condition checking & free will
@@ -561,7 +583,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
         system = (
             f"Server: {guild_name}\n"
             f"Channel: {channel_name}\n\n"
-            f"{get_system_prompt()}\n"
+            f"{get_system_prompt(status)}\n"
             f"Relevant Knowledge:\n{knowledge_list}\n"
             f"Relevant global memories:\n{summary_list}\n"
             f"Relevant user memories for {message.author.name}:\n{user_summaries}"
@@ -711,6 +733,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
             elif name == 'set_status':
                 new_status = args['status']
                 await bot.change_presence(activity=discord.CustomActivity(new_status))
+                status = new_status
                 tool_result = f'Status set to {new_status}'
 
             elif name == 'cancel_response':
@@ -1093,6 +1116,31 @@ async def freewill_task():
             if DEBUG:
                 print(f"Free will task error: {e}")
         await asyncio.sleep(NATURAL_REPLIES_INTERVAL)
+
+async def update_status():
+    await bot.wait_until_ready()
+    while not bot.is_closed():
+        if DEBUG:
+            print("Updating status message...")
+        news_posts = await get_news_posts()
+        message = f"""Create a short Discord status message for the bot based on one of the following news headlines:
+{news_posts}
+Choose one headline and turn it into a concise, engaging Discord status.
+Do not mention the headline source, and do not add explanations or extra commentary.
+Respond with only the final status message."""
+        response = await generate_response(
+            message,
+            tools=None,
+            tool_choice=None,
+            instructions=EVEN_SHORTER_SYSTEM
+        )
+        status_text = response.output_text
+        if DEBUG:
+            print(f"Setting status to: {status_text}")
+        await bot.change_presence(activity=discord.CustomActivity(status_text))
+        global status
+        status = status_text
+        await asyncio.sleep(86400)
 
 # Runs the bot
 if __name__ == '__main__':

@@ -1,11 +1,16 @@
 import asyncio
 import functools
 import base64
+import requests
 from openai import OpenAI
 from config import MODEL, DEBUG, EMBED_MODEL
 from credentials import openai_key
 
 _oai = OpenAI(api_key=openai_key)
+
+reddit_headers = {
+    "User-Agent": "AI-Nerd/1.0 (Nerdlabs AI)"
+}
 
 async def generate_response(messages, tools=None, tool_choice=None, model=MODEL, channel_id=None, instructions=None, effort="minimal", service_tier="auto"):
     loop = asyncio.get_event_loop()
@@ -39,6 +44,17 @@ def embed_text(text: str) -> list:
     resp = _oai.embeddings.create(model=EMBED_MODEL, input=text)
     emb = resp.data[0].embedding
     return emb
+
+def get_subreddit_posts(subreddit: str, limit: int):
+    url = f"https://www.reddit.com/r/{subreddit}/top.json?t=day&limit={limit}"
+    try:
+        res = requests.get(url, headers=reddit_headers, timeout=10)
+        res.raise_for_status()
+        data = res.json()
+        posts = data["data"]["children"]
+        return [p["data"]["title"] for p in posts]
+    except Exception:
+        return []
 
 async def generate_image(prompt, model="gpt-image-1", filename="image.png"):
     loop = asyncio.get_event_loop()
