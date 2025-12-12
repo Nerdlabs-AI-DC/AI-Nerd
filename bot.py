@@ -1149,7 +1149,12 @@ Respond with only the final status message."""
         await bot.change_presence(activity=discord.CustomActivity(status_text))
         global status
         status = status_text
-        await asyncio.sleep(86400)
+        now = datetime.now(timezone.utc)
+        next_midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=timezone.utc)
+        sleep_seconds = (next_midnight - now).total_seconds()
+        if sleep_seconds < 0:
+            sleep_seconds = 0
+        await asyncio.sleep(sleep_seconds)
 
 # Runs the bot
 if __name__ == '__main__':
