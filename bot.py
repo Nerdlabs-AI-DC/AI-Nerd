@@ -184,6 +184,15 @@ async def enrich_mentions(text: str, guild: discord.Guild | None) -> str:
         return text or ''
     if guild is None:
         return text
+    channel_matches = {m.group(0): int(m.group(1)) for m in re.finditer(r'<#(\d+)>', text)}
+    for full, cid in channel_matches.items():
+        try:
+            channel = guild.get_channel(cid) or bot.get_channel(cid)
+            if channel:
+                replacement = f"{full}[#{channel.name}]"
+                text = text.replace(full, replacement)
+        except Exception:
+            continue
 
     role_matches = {m.group(0): int(m.group(1)) for m in re.finditer(r'<@&(\d+)>', text)}
     for full, rid in role_matches.items():
