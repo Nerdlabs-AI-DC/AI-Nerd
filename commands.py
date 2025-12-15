@@ -10,8 +10,8 @@ import datetime
 import requests
 import sys
 import numpy as np
-from openai_client import generate_response, generate_image, embed_text
-from config import DEBUG, OWNER_ID
+from openai_client import generate_response, embed_text, edit_image
+from config import DEBUG, OWNER_ID, CHRISTMAS_IMAGE_PROMPT, TEMP_DIR
 from nerdscore import get_nerdscore, increase_nerdscore, load_nerdscore
 import storage
 from memory import delete_user_memories
@@ -972,3 +972,38 @@ Otherwise output only: False
         await interaction.followup.send(message, ephemeral=True)
 
     bot.tree.add_command(admin_group)
+
+    christmas_group = app_commands.Group(name="christmas", description="Christmas event commands")
+
+    @christmas_group.command(name="jollify", description="Remix a photo into Christmas style")
+    async def jollify(interaction: discord.Interaction, image: discord.Attachment):
+        if not image.content_type or not image.content_type.startswith("image/"):
+            await interaction.response.send_message("This file isn't a valid image.", ephemeral=True)
+            return
+        
+        await interaction.response.defer()
+
+        input_path = os.path.join(TEMP_DIR, f"input_{interaction.id}.png")
+        await image.save(input_path)
+
+        output_file = None
+
+        try:
+            output_file = await edit_image(input_path, CHRISTMAS_IMAGE_PROMPT, filename=os.path.join(TEMP_DIR, f"jollified_{interaction.id}.png"))
+
+            await interaction.followup.send(
+                content="### 🎄 Jollify\nYour image has been jollified! ❄️",
+                file=discord.File(output_file)
+            )
+        
+        except:
+            await interaction.followup.send("An error occurred while jollifying the image.")
+
+        finally:
+                try:
+                    os.remove(input_path)
+                    os.remove(output_file)
+                except Exception as e:
+                    print(f"Failed to clean up temporary files: {e}")
+
+    bot.tree.add_command(christmas_group)

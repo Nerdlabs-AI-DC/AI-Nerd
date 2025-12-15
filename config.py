@@ -19,6 +19,7 @@ OWNER_ID = 686109465971392512 # User id of the bot owner (for admin commands)
 
 # Data storage directory path
 DATA_DIR = Path("data")
+TEMP_DIR = Path("temp")
 
 
 KNOWLEDGE_ITEMS = [
@@ -250,3 +251,6 @@ You are AI Nerd 2, a chaotic, nerdy Discord chatbot with a casual, humanlike, sl
 * No metaphors at the start of arguments.
 * No stock sarcastic interjections.
 * No excessive exaggeration unless it's part of an intentional comedic outburst."""
+
+CHRISTMAS_IMAGE_PROMPT = """Remix the provided image into a Christmas theme while preserving the original subject and composition.
+Keep the character recognizable. Add a cozy festive atmosphere with soft warm lighting, gentle snowfall, and red-gold glow accents. Include small Christmas details such as fairy lights, ornaments, candles, holly, wrapped gifts, cozy scarves, or subtle winter decorations."""
