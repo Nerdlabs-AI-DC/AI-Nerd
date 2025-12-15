@@ -971,4 +971,38 @@ Otherwise output only: False
         )
         await interaction.followup.send(message, ephemeral=True)
 
+    @admin_group.command(name="ban", description="Ban or unban a user")
+    @app_commands.describe(action="Choose ban or unban", user="The user to affect")
+    @app_commands.choices(action=[
+        app_commands.Choice(name="Ban", value="ban"),
+        app_commands.Choice(name="Unban", value="unban"),
+    ])
+    async def ban_toggle(interaction: Interaction, action: str, user: discord.User):
+        if interaction.user.id != OWNER_ID:
+            return await interaction.response.send_message("You are not authorized to use this command.", ephemeral=True)
+        try:
+            banned_map = storage.load_banned_map() or {}
+        except Exception:
+            banned_map = {}
+
+        uid = int(user.id)
+        if action == 'ban':
+            if uid in banned_map:
+                return await interaction.response.send_message(f"{user} is already banned.", ephemeral=True)
+            banned_map[uid] = {'notified': False}
+            try:
+                storage.save_banned_map(banned_map)
+            except Exception:
+                return await interaction.response.send_message("Failed to save banned users list.", ephemeral=True)
+            await interaction.response.send_message(f"Banned {user} from using the bot.", ephemeral=True)
+        else:
+            if uid not in banned_map:
+                return await interaction.response.send_message(f"{user} is not banned.", ephemeral=True)
+            try:
+                banned_map.pop(uid, None)
+                storage.save_banned_map(banned_map)
+            except Exception:
+                return await interaction.response.send_message("Failed to update banned users list.", ephemeral=True)
+            await interaction.response.send_message(f"Unbanned {user}.", ephemeral=True)
+
     bot.tree.add_command(admin_group)
