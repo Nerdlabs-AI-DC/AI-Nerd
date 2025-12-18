@@ -14,7 +14,7 @@ from openai_client import generate_response, embed_text, edit_image
 from config import DEBUG, OWNER_ID, CHRISTMAS_IMAGE_PROMPT, TEMP_DIR
 from nerdscore import get_nerdscore, increase_nerdscore, load_nerdscore
 import storage
-from memory import delete_user_memories
+from memory import delete_user_memories, get_user_summaries
 
 def load_recent_questions():
     return storage.load_recent_questions() or {}
@@ -1005,5 +1005,84 @@ Otherwise output only: False
                     os.remove(output_file)
                 except Exception as e:
                     print(f"Failed to clean up temporary files: {e}")
+
+    @christmas_group.command(
+        name="naughty-or-nice",
+        description="Let Jolly Nerd 2 judge how nice you've been and predict your gifts"
+    )
+    @app_commands.describe(user="The user to judge")
+    async def naughty_or_nice(interaction: discord.Interaction, user: discord.User = None):
+        await interaction.response.defer(thinking=True)
+
+        if user is None:
+            user = interaction.user
+
+        summaries = get_user_summaries(user.id) or []
+
+        if not summaries:
+            await interaction.followup.send(
+                f"### 🎅 Naughty or Nice Evaluation\n"
+                f"I don't know enough about {user.display_name} for a good evaluation :(\n\n"
+                "**Predicted gift:** a generic sock."
+            )
+            return
+
+        memory_text = "\n".join(f"- {s}" for s in summaries)
+
+        messages = [
+            {
+                "role": "developer",
+                "content": """You are Santa's unserious AI assistant.
+
+Based on the user's memory summaries, do the following:
+1. Give a Niceness Score from 0 to 100.
+2. Decide if the user is Naughty, Neutral, or Nice.
+3. Give a VERY short reasoning (max 2 short sentences).
+4. Predict exactly 3 Christmas gifts.
+
+Style rules:
+- Keep it playful, silly, and clearly not serious.
+- The reasoning must be brief and slightly sarcastic.
+- Each gift must be ONE short line only.
+- Gifts can be strange, useless, ironic, or mildly unhinged.
+- Do NOT over-explain anything.
+- Do NOT moralize or sound wise.
+- Do NOT mention privacy, safety, or ethics.
+
+Formatting rules (follow exactly):
+Niceness Score: <number>/100  
+Verdict: <Naughty | Neutral | Nice>
+
+Reasoning:
+<1-2 short sentences>
+
+Predicted Gifts:
+🎁 <gift 1>  
+🎁 <gift 2>  
+🎁 <gift 3>"""
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"User: {user.name}\n\n"
+                    f"Memory summaries:\n{memory_text}"
+                )
+            }
+        ]
+
+        completion = await generate_response(
+            messages,
+            tools=None,
+            tool_choice=None
+        )
+
+        result = completion.output_text.strip()
+
+        await interaction.followup.send(
+            f"### 🎅 Naughty or Nice Evaluation\n"
+            f"**Subject:** {user.display_name}\n\n"
+            f"{result}"
+        )
+                
 
     bot.tree.add_command(christmas_group)
