@@ -176,3 +176,68 @@ def load_knowledge():
 
 def save_knowledge(data: dict):
     set_json('knowledge_data', data or {})
+
+
+def load_banned_users():
+    data = get_json('banned_users', []) or []
+    try:
+        if isinstance(data, dict):
+            return [int(k) for k in data.keys()]
+        return [int(x) for x in data]
+    except Exception:
+        return []
+
+
+def save_banned_users(user_list):
+    try:
+        data = [int(x) for x in (user_list or [])]
+    except Exception:
+        data = []
+    set_json('banned_users', data)
+
+
+def load_banned_map():
+    raw = get_json('banned_users', {}) or {}
+    try:
+        if isinstance(raw, dict):
+            out = {}
+            for k, v in raw.items():
+                try:
+                    out[int(k)] = v or {}
+                except Exception:
+                    continue
+            return out
+        if isinstance(raw, list):
+            return {int(x): {'notified': False} for x in raw}
+    except Exception:
+        pass
+    return {}
+
+
+def save_banned_map(banned_map: dict):
+    try:
+        serial = {str(int(k)): (v or {}) for k, v in (banned_map or {}).items()}
+        set_json('banned_users', serial)
+    except Exception:
+        raise
+
+
+def mark_banned_user_notified(user_id: int):
+    try:
+        bm = load_banned_map()
+        if int(user_id) in bm:
+            bm[int(user_id)]['notified'] = True
+            save_banned_map(bm)
+    except Exception:
+        pass
+
+
+def is_banned_user_notified(user_id: int) -> bool:
+    try:
+        bm = load_banned_map()
+        meta = bm.get(int(user_id))
+        if not meta:
+            return False
+        return bool(meta.get('notified'))
+    except Exception:
+        return False
