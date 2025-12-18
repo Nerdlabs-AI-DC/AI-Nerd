@@ -399,6 +399,28 @@ async def send_message(message, system_msg=None, force_response=False, functions
     # Condition checking & free will
     if message.author.id == bot.user.id and force_response == False:
         return
+    try:
+        banned_map = storage.load_banned_map()
+        if message.author.id in banned_map:
+            meta = banned_map.get(message.author.id) or {}
+            notified = bool(meta.get('notified'))
+            if not notified:
+                try:
+                    await message.reply(
+                        "You have been banned from using AI Nerd 2. Further messages will be ignored.",
+                        mention_author=False
+                    )
+                except Exception:
+                    pass
+                try:
+                    storage.mark_banned_user_notified(message.author.id)
+                except Exception:
+                    pass
+            if DEBUG:
+                print(f"Ignoring message from banned user {message.author.id}")
+            return
+    except Exception:
+        pass
     
     if not check_send_perm(message.channel):
         return
