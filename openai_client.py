@@ -64,8 +64,7 @@ async def edit_image(input_path, prompt, model="gpt-image-1-mini", filename="chr
             _oai.images.edit,
             model=model,
             image=[open(input_path, "rb")],
-            prompt=prompt,
-            quality="low"
+            prompt=prompt
         )
     )
 

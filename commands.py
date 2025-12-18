@@ -11,7 +11,7 @@ import requests
 import sys
 import numpy as np
 from openai_client import generate_response, embed_text, edit_image
-from config import DEBUG, OWNER_ID, CHRISTMAS_IMAGE_PROMPT, TEMP_DIR
+from config import DEBUG, OWNER_ID, CHRISTMAS_IMAGE_PROMPT_BALANCED, TEMP_DIR, CHRISTMAS_IMAGE_PROMPT_COLD, CHRISTMAS_IMAGE_PROMPT_COZY, CHRISTMAS_IMAGE_PROMPT_NIGHT
 from nerdscore import get_nerdscore, increase_nerdscore, load_nerdscore
 import storage
 from memory import delete_user_memories, get_user_summaries
@@ -976,7 +976,13 @@ Otherwise output only: False
     christmas_group = app_commands.Group(name="christmas", description="Christmas event commands")
 
     @christmas_group.command(name="jollify", description="Remix a photo into Christmas style")
-    async def jollify(interaction: discord.Interaction, image: discord.Attachment):
+    @app_commands.choices(style=[
+        app_commands.Choice(name="Balanced", value="Balanced"),
+        app_commands.Choice(name="Cozy", value="Cozy"),
+        app_commands.Choice(name="Cold", value="Cold"),
+        app_commands.Choice(name="Frosty Night", value="Frosty Night"),
+    ])
+    async def jollify(interaction: discord.Interaction, image: discord.Attachment, style: str = "Balanced"):
         if not image.content_type or not image.content_type.startswith("image/"):
             await interaction.response.send_message("This file isn't a valid image.", ephemeral=True)
             return
@@ -988,11 +994,19 @@ Otherwise output only: False
 
         output_file = None
 
+        prompt = CHRISTMAS_IMAGE_PROMPT_BALANCED
+        if style == "Cozy":
+            prompt = CHRISTMAS_IMAGE_PROMPT_COZY
+        elif style == "Cold":
+            prompt = CHRISTMAS_IMAGE_PROMPT_COLD
+        elif style == "Frosty Night":
+            prompt = CHRISTMAS_IMAGE_PROMPT_NIGHT
+
         try:
-            output_file = await edit_image(input_path, CHRISTMAS_IMAGE_PROMPT, filename=os.path.join(TEMP_DIR, f"jollified_{interaction.id}.png"))
+            output_file = await edit_image(input_path, prompt, filename=os.path.join(TEMP_DIR, f"jollified_{interaction.id}.png"))
 
             await interaction.followup.send(
-                content="### 🎄 Jollify\nYour image has been jollified! ❄️",
+                content=f"### 🎄 Jollify\nStyle: {style}\nYour image has been jollified! ❄️",
                 file=discord.File(output_file)
             )
         

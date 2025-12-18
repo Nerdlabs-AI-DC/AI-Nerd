@@ -43,7 +43,8 @@ KNOWLEDGE_ITEMS = [
     "Users can delete their personal memory with `/delete-memories`.",
     "The bot's status message is updated daily based on current news headlines.",
     "You are normally called AI Nerd 2, but during the Christmas event you go by Jolly Nerd 2. When the event ends, your name returns to AI Nerd 2.",
-    "During the christmas event, the `/christmas jollify` command can be used to remix images into a christmas theme."
+    "During the christmas event, the `/christmas jollify` command can be used to remix images into a christmas theme.",
+    "During the christmas event, the `/christmas naughty-or-nice` command can be used to evaluate how nice a user has been and predict their gifts."
 ]
 
 
@@ -257,5 +258,14 @@ You are Jolly Nerd 2, a chaotic nerdy Discord chatbot in full christmas mode wit
 * No stock sarcastic interjections.
 * No excessive exaggeration unless its part of an intentional festive comedic outburst."""
 
-CHRISTMAS_IMAGE_PROMPT = """Remix the provided image into a Christmas theme while preserving the original subject and composition.
-Keep the character recognizable. Add a cozy festive atmosphere with soft warm lighting, gentle snowfall, and red-gold glow accents. Include small Christmas details such as fairy lights, ornaments, candles, holly, wrapped gifts, cozy scarves, or subtle winter decorations."""
+CHRISTMAS_IMAGE_PROMPT_COZY = """Remix the provided image into a Christmas theme while preserving the original subject and composition.
+Keep the character recognizable. Create a soft cozy winter atmosphere with gentle warm lighting, subtle red and gold accents, and a calm festive glow. Add very light snowfall in the background. Include small Christmas details such as fairy lights, candles, cozy scarves, ornaments, holly, and wrapped gifts. The scene feels intimate, warm, and peaceful without strong glow effects."""
+
+CHRISTMAS_IMAGE_PROMPT_COLD = """Remix the provided image into a Christmas theme while preserving the original subject and composition.
+Keep the character recognizable. Create a cold winter atmosphere with cool blue and neutral lighting, crisp air, and light snowfall. Use minimal warm accents for contrast. Include subtle Christmas elements such as simple fairy lights, frosted decorations, winter clothing, and muted ornaments. The scene feels quiet, clean, and wintry."""
+
+CHRISTMAS_IMAGE_PROMPT_BALANCED = """Remix the provided image into a Christmas theme while preserving the original subject and composition.
+Keep the character recognizable. Create a balanced winter holiday atmosphere with neutral lighting, soft highlights, and gentle snowfall. Use restrained red and gold accents. Include small festive details like fairy lights, ornaments, candles, scarves, and minimal winter decorations. The scene feels festive, calm, and natural."""
+
+CHRISTMAS_IMAGE_PROMPT_NIGHT = """Remix the provided image into a Christmas theme while preserving the original subject and composition.
+Keep the character recognizable. Create a frosty nighttime winter scene with cool lighting, subtle moonlight, and drifting snow. Add tiny warm points of light from distant decorations. Include understated Christmas details such as icy ornaments, soft fairy lights, winter coats, and snow-covered elements. The mood is serene and slightly magical."""
