@@ -6,7 +6,7 @@ from openai import OpenAI
 from config import MODEL, DEBUG, EMBED_MODEL
 from credentials import openai_key
 
-_oai = OpenAI(api_key=openai_key)
+_oai = OpenAI(api_key="<redacted>", base_url="https://openrouter.ai/api/v1")
 
 reddit_headers = {
     "User-Agent": "AI-Nerd/1.0 (Nerdlabs AI)"
@@ -16,6 +16,7 @@ async def generate_response(messages, tools=None, tool_choice=None, model=MODEL,
     loop = asyncio.get_event_loop()
     if DEBUG:
         print(f"Instructions: {instructions}. Generating response with model: {model} and channel id: {channel_id}.")
+    messages.insert(0, {"role": "developer", "content": instructions})
     kwargs = dict(model=model, instructions=instructions, input=messages, max_output_tokens=2000, reasoning={ "effort": effort }, service_tier=service_tier)
     if tools:
         fixed_tools = []
@@ -39,6 +40,7 @@ async def generate_response(messages, tools=None, tool_choice=None, model=MODEL,
     return completion
 
 def embed_text(text: str) -> list:
+    _oai = OpenAI(api_key=openai_key)
     if DEBUG:
         print(f"""Embedding text "{text}" with model: {EMBED_MODEL}""")
     resp = _oai.embeddings.create(model=EMBED_MODEL, input=text)
