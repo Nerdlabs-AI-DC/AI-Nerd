@@ -3,21 +3,26 @@ import functools
 import base64
 import requests
 from openai import OpenAI
+from openrouter import OpenRouter
 from config import MODEL, DEBUG, EMBED_MODEL
-from credentials import openai_key
+from credentials import ai_key
 
-_oai = OpenAI(api_key="<redacted>", base_url="https://openrouter.ai/api/v1")
+_oai = OpenAI(api_key=ai_key, base_url="https://openrouter.ai/api/v1")
 
 reddit_headers = {
     "User-Agent": "AI-Nerd/1.0 (Nerdlabs AI)"
 }
 
-async def generate_response(messages, tools=None, tool_choice=None, model=MODEL, channel_id=None, instructions=None, effort="minimal", service_tier="auto"):
+async def generate_response(messages, tools=None, tool_choice=None, model=MODEL, channel_id=None, instructions=None, effort=False):
     loop = asyncio.get_event_loop()
     if DEBUG:
         print(f"Instructions: {instructions}. Generating response with model: {model} and channel id: {channel_id}.")
     messages.insert(0, {"role": "developer", "content": instructions})
-    kwargs = dict(model=model, instructions=instructions, input=messages, max_output_tokens=2000, reasoning={ "effort": effort }, service_tier=service_tier)
+    kwargs = dict(
+    model=model,
+    input=messages,
+    max_output_tokens=2000
+    )
     if tools:
         fixed_tools = []
         for tool in tools:
@@ -30,6 +35,18 @@ async def generate_response(messages, tools=None, tool_choice=None, model=MODEL,
         kwargs["tool_choice"] = tool_choice
     if channel_id:
         kwargs["prompt_cache_key"] = str(channel_id)
+    if effort:
+        kwargs["extra_body"] = {
+            "reasoning": {
+                "enabled": True,
+            }
+        }
+    else:
+        kwargs["extra_body"] = {
+            "reasoning": {
+                "enabled": False
+            }
+        }
     completion = await loop.run_in_executor(
         None,
         functools.partial(
@@ -40,12 +57,14 @@ async def generate_response(messages, tools=None, tool_choice=None, model=MODEL,
     return completion
 
 def embed_text(text: str) -> list:
-    _oai = OpenAI(api_key=openai_key)
     if DEBUG:
         print(f"""Embedding text "{text}" with model: {EMBED_MODEL}""")
-    resp = _oai.embeddings.create(model=EMBED_MODEL, input=text)
-    emb = resp.data[0].embedding
-    return emb
+    
+    with OpenRouter(
+        api_key=ai_key,
+    ) as open_router:
+        res = open_router.embeddings.generate(input=text, model=EMBED_MODEL)
+    return res
 
 def get_subreddit_posts(subreddit: str, limit: int):
     url = f"https://www.reddit.com/r/{subreddit}/top.json?t=day&limit={limit}"
