@@ -33,7 +33,7 @@ from config import (
     NATURAL_REPLIES_INTERVAL,
     NATURAL_REPLIES_TIMEOUT,
     DAILY_MESSAGE_LIMIT,
-    FALLBACK_MODEL,
+    CHEAP_MODEL,
     MODEL,
     KNOWLEDGE_ITEMS,
     MEMORY_TOP_K,
@@ -572,53 +572,49 @@ async def send_message(message, system_msg=None, force_response=False, functions
     if moved:
         history.append({'role': 'system', 'content': 'The conversation has moved to a different channel.'})
 
-    system = ""
-    if freewill:
-        system = SYSTEM_SHORT
-    else:
-        embedded_msg = embed_text(message.content)
-        try:
-            relevant_globals = find_relevant_memories(embedded_msg, top_k=MEMORY_TOP_K, user_id=None)
-            if relevant_globals:
-                summary_list = "\n".join(f"{r['index']}. {r['summary']}" for r in relevant_globals)
-            else:
-                summary_list = "No relevant global memories found."
-        except Exception:
-            summaries = get_all_summaries()
-            summary_list = "\n".join(f"{i+1}. {s}" for i, s in enumerate(summaries))
+    embedded_msg = embed_text(message.content)
+    try:
+        relevant_globals = find_relevant_memories(embedded_msg, top_k=MEMORY_TOP_K, user_id=None)
+        if relevant_globals:
+            summary_list = "\n".join(f"{r['index']}. {r['summary']}" for r in relevant_globals)
+        else:
+            summary_list = "No relevant global memories found."
+    except Exception:
+        summaries = get_all_summaries()
+        summary_list = "\n".join(f"{i+1}. {s}" for i, s in enumerate(summaries))
 
-        try:
-            relevant_user = find_relevant_memories(embedded_msg, top_k=MEMORY_TOP_K, user_id=message.author.id)
-            if relevant_user:
-                user_summaries = "\n".join(f"{r['index']}. {r['summary']}" for r in relevant_user)
-            else:
-                user_summaries = "No relevant user memories found."
-        except Exception:
-            user_summaries_list = get_user_summaries(message.author.id)
-            if user_summaries_list:
-                user_summaries = "\n".join(f"{i+1}. {s}" for i, s in enumerate(user_summaries_list))
-            else:
-                user_summaries = "No user memories found."
-                
-        try:
-            relevant_knowledge = find_relevant_knowledge(embedded_msg, top_k=KNOWLEDGE_TOP_K)
-            if relevant_knowledge:
-                knowledge_list = "\n".join(f"* {r['text']}" for i, r in enumerate(relevant_knowledge))
-            else:
-                knowledge_list = "No relevant knowledge found."
-        except Exception:
-            knowledge_list = "\n".join(f"* {s}" for i, s in enumerate(KNOWLEDGE_ITEMS))
+    try:
+        relevant_user = find_relevant_memories(embedded_msg, top_k=MEMORY_TOP_K, user_id=message.author.id)
+        if relevant_user:
+            user_summaries = "\n".join(f"{r['index']}. {r['summary']}" for r in relevant_user)
+        else:
+            user_summaries = "No relevant user memories found."
+    except Exception:
+        user_summaries_list = get_user_summaries(message.author.id)
+        if user_summaries_list:
+            user_summaries = "\n".join(f"{i+1}. {s}" for i, s in enumerate(user_summaries_list))
+        else:
+            user_summaries = "No user memories found."
+            
+    try:
+        relevant_knowledge = find_relevant_knowledge(embedded_msg, top_k=KNOWLEDGE_TOP_K)
+        if relevant_knowledge:
+            knowledge_list = "\n".join(f"* {r['text']}" for i, r in enumerate(relevant_knowledge))
+        else:
+            knowledge_list = "No relevant knowledge found."
+    except Exception:
+        knowledge_list = "\n".join(f"* {s}" for i, s in enumerate(KNOWLEDGE_ITEMS))
 
-        channel_name = message.channel.name if not is_dm else 'DM'
-        guild_name = message.guild.name if not is_dm else 'DM'
-        system = (
-            f"Server: {guild_name}\n"
-            f"Channel: {channel_name}\n\n"
-            f"{get_system_prompt(status)}\n"
-            f"Relevant Knowledge:\n{knowledge_list}\n"
-            f"Relevant global memories:\n{summary_list}\n"
-            f"Relevant user memories for {message.author.name}:\n{user_summaries}"
-        )
+    channel_name = message.channel.name if not is_dm else 'DM'
+    guild_name = message.guild.name if not is_dm else 'DM'
+    system = (
+        f"Server: {guild_name}\n"
+        f"Channel: {channel_name}\n\n"
+        f"{get_system_prompt(status)}\n"
+        f"Relevant Knowledge:\n{knowledge_list}\n"
+        f"Relevant global memories:\n{summary_list}\n"
+        f"Relevant user memories for {message.author.name}:\n{user_summaries}"
+    )
 
     user_content = []
     try:
@@ -668,20 +664,19 @@ async def send_message(message, system_msg=None, force_response=False, functions
     count = None
 
     if freewill:
-            model_to_use = MODEL
+            model_to_use = CHEAP_MODEL
             completion = await generate_response(
                 messages,
                 tools=local_tools,
                 tool_choice=functioncall,
                 channel_id=message.channel.id,
                 instructions=system,
-                model=model_to_use,
-                service_tier="flex"
+                model=model_to_use
             )
     else:
         async with message.channel.typing():
             count = increment_user_daily_count(user_id)
-            model_to_use = FALLBACK_MODEL if count > DAILY_MESSAGE_LIMIT else MODEL
+            model_to_use = CHEAP_MODEL if count > DAILY_MESSAGE_LIMIT else MODEL
             completion = await generate_response(
                 messages,
                 tools=local_tools,
