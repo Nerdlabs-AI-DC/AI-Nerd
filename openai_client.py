@@ -13,11 +13,12 @@ reddit_headers = {
     "User-Agent": "AI-Nerd/1.0 (Nerdlabs AI)"
 }
 
-async def generate_response(messages, tools=None, tool_choice=None, model=MODEL, channel_id=None, instructions=None, effort=False):
+async def generate_response(messages, tools=None, tool_choice=None, model=MODEL, channel_id=None, instructions=None, effort=None):
     loop = asyncio.get_event_loop()
     if DEBUG:
         print(f"Instructions: {instructions}. Generating response with model: {model} and channel id: {channel_id}.")
-    messages.insert(0, {"role": "developer", "content": instructions})
+    if instructions:
+        messages.insert(0, {"role": "developer", "content": instructions})
     kwargs = dict(
     model=model,
     input=messages,
@@ -39,14 +40,23 @@ async def generate_response(messages, tools=None, tool_choice=None, model=MODEL,
         kwargs["extra_body"] = {
             "reasoning": {
                 "enabled": True,
+                "effort": effort
             }
         }
     else:
-        kwargs["extra_body"] = {
-            "reasoning": {
-                "enabled": False
+        if model.startswith("openai/"):
+            kwargs["extra_body"] = {
+                "reasoning": {
+                    "enabled": True,
+                    "effort": "minimal"
+                }
             }
-        }
+        else:
+            kwargs["extra_body"] = {
+                "reasoning": {
+                    "enabled": False
+                }
+            }
     completion = await loop.run_in_executor(
         None,
         functools.partial(
@@ -64,7 +74,8 @@ def embed_text(text: str) -> list:
         api_key=ai_key,
     ) as open_router:
         res = open_router.embeddings.generate(input=text, model=EMBED_MODEL)
-    return res
+        emb = res.data[0].embedding
+    return emb
 
 def get_subreddit_posts(subreddit: str, limit: int):
     url = f"https://www.reddit.com/r/{subreddit}/top.json?t=day&limit={limit}"
