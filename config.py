@@ -9,6 +9,7 @@ HISTORY_SIZE = 10 # Number of previous messages to include in context (default: 
 MODEL = "deepseek/deepseek-v3.2" # Main model to use (default: "deepseek/deepseek-v3.2")
 CHEAP_MODEL = "nex-agi/deepseek-v3.1-nex-n1:free" # Cheaper model to use for natural replies and after daily limit is reached (default: "nex-agi/deepseek-v3.1-nex-n1:free")
 EMBED_MODEL = "openai/text-embedding-3-small" # Model to use for memory embeddings (default: "openai/text-embedding-3-small")
+COMMANDS_MODEL = "openai/gpt-5-mini" # Model to use without personality (default: "openai/gpt-5-mini")
 MEMORY_TOP_K = 3 # Number of relevant memories to include in context (default: 3)
 KNOWLEDGE_TOP_K = 3 # Number of relevant knowledge items to include in context (default: 3)
 DEBUG = False # Enables debug logging (default: False)
