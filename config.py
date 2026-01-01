@@ -10,6 +10,7 @@ MODEL = "deepseek/deepseek-v3.2" # Main model to use (default: "deepseek/deepsee
 CHEAP_MODEL = "nex-agi/deepseek-v3.1-nex-n1:free" # Cheaper model to use for natural replies and after daily limit is reached (default: "nex-agi/deepseek-v3.1-nex-n1:free")
 EMBED_MODEL = "openai/text-embedding-3-small" # Model to use for memory embeddings (default: "openai/text-embedding-3-small")
 COMMANDS_MODEL = "openai/gpt-5-mini" # Model to use without personality (default: "openai/gpt-5-mini")
+IMAGE_MODEL = "deepseek-ocr:3b" # Model to use for image analysis (default: "deepseek-ocr:3b")
 MEMORY_TOP_K = 3 # Number of relevant memories to include in context (default: 3)
 KNOWLEDGE_TOP_K = 3 # Number of relevant knowledge items to include in context (default: 3)
 DEBUG = False # Enables debug logging (default: False)
@@ -18,8 +19,9 @@ MEMORY_LIMIT = 500 # Max number of memories to store (per user and global memori
 DAILY_MESSAGE_LIMIT = 50 # Max number of messages per user per day before switching to fallback model (default: 50)
 OWNER_ID = 686109465971392512 # User id of the bot owner (for admin commands)
 
-# Data storage directory path
+# Directories
 DATA_DIR = Path("data")
+TEMP_DIR = Path("temp")
 
 
 KNOWLEDGE_ITEMS = [

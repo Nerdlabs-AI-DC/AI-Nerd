@@ -4,6 +4,7 @@ import base64
 import requests
 from openai import OpenAI
 from openrouter import OpenRouter
+from ollama import chat
 from config import MODEL, DEBUG, EMBED_MODEL
 from credentials import ai_key
 
@@ -88,19 +89,16 @@ def get_subreddit_posts(subreddit: str, limit: int):
     except Exception:
         return []
 
-async def generate_image(prompt, model="gpt-image-1", filename="image.png"):
-    loop = asyncio.get_event_loop()
-    result = await loop.run_in_executor(
-        None,
-        functools.partial(
-            _oai.images.generate,
-            model=model,
-            prompt=prompt,
-            quality="low"
-        )
+async def analyze_image(path):
+    print(f"Analyzing image: {path}")
+    response = await asyncio.to_thread(chat,
+        model='deepseek-ocr:3b',
+        messages=[
+            {
+            'role': 'user',
+            'content': 'Describe this image in detail.',
+            'images': [path],
+            }
+        ],
     )
-    image_base64 = result.data[0].b64_json
-    image_bytes = base64.b64decode(image_base64)
-    with open(filename, "wb") as f:
-        f.write(image_bytes)
-    return filename
+    return response.message.content

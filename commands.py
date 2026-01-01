@@ -10,7 +10,7 @@ import datetime
 import requests
 import sys
 import numpy as np
-from openai_client import generate_response, generate_image, embed_text
+from openai_client import generate_response, embed_text
 from config import DEBUG, OWNER_ID, COMMANDS_MODEL
 from nerdscore import get_nerdscore, increase_nerdscore, load_nerdscore
 import storage
