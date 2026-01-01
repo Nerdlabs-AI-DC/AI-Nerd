@@ -175,7 +175,7 @@ async def process_response(text, guild, count):
         text = re.sub(r'@here', '@redacted', text, flags=re.IGNORECASE)
     if count == DAILY_MESSAGE_LIMIT:
         timestamp = int((datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=timezone.utc) + timedelta(days=1)).timestamp())
-        text += f"\n-# It seems that you have been chatting a lot today. To reduce costs, a less advanced model will be used for the rest of the day. Responses may be less accurate. Your limit resets <t:{timestamp}:R>."
+        text += f"\n-# It seems that you have been chatting a lot today. To reduce costs, a cheaper model will be used for the rest of the day. Responses may be slower and unstable. Your limit resets <t:{timestamp}:R>."
     return text
 
 
@@ -665,26 +665,35 @@ async def send_message(message, system_msg=None, force_response=False, functions
 
     if freewill:
             model_to_use = CHEAP_MODEL
-            completion = await generate_response(
-                messages,
-                tools=local_tools,
-                tool_choice=functioncall,
-                channel_id=message.channel.id,
-                instructions=system,
-                model=model_to_use
-            )
+            try:
+                completion = await generate_response(
+                    messages,
+                    tools=local_tools,
+                    tool_choice=functioncall,
+                    channel_id=message.channel.id,
+                    instructions=system,
+                    model=model_to_use
+                )
+            except Exception:
+                return
     else:
         async with message.channel.typing():
             count = increment_user_daily_count(user_id)
             model_to_use = CHEAP_MODEL if count > DAILY_MESSAGE_LIMIT else MODEL
-            completion = await generate_response(
-                messages,
-                tools=local_tools,
-                tool_choice=functioncall,
-                channel_id=message.channel.id,
-                instructions=system,
-                model=model_to_use
-            )
+            try:
+                completion = await generate_response(
+                    messages,
+                    tools=local_tools,
+                    tool_choice=functioncall,
+                    channel_id=message.channel.id,
+                    instructions=system,
+                    model=model_to_use
+                )
+            except Exception:
+                if count > DAILY_MESSAGE_LIMIT:
+                    return
+                else:
+                    raise
     class MsgObj:
         def __init__(self, content, tool_calls=None):
             self.content = content
@@ -911,7 +920,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
         print('--- RESPONSE ---')
         print(msg_obj.content)
     # this stupid ai forgets how to call functions sometimes so i added this
-    if cancelled or (isinstance(msg_obj.content, str) and msg_obj.content.strip() in ("cancel_response", "cancel_response()")):
+    if cancelled or (isinstance(msg_obj.content, str) and msg_obj.content.strip() in ("cancel_response", "cancel_response()")) or not msg_obj.content.strip():
         if DEBUG:
             print("Cancelling response.")
         # Post-response processing
