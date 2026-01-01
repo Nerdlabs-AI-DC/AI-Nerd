@@ -23,6 +23,7 @@ from discord.ext import commands
 import random
 import datetime
 import re
+import os
 from config import (
     RESPOND_TO_PINGS,
     HISTORY_SIZE,
@@ -39,7 +40,8 @@ from config import (
     MEMORY_TOP_K,
     KNOWLEDGE_TOP_K,
     NEWS_SUBREDDITS,
-    EVEN_SHORTER_SYSTEM
+    EVEN_SHORTER_SYSTEM,
+    TEMP_DIR
 )
 from memory import (
     init_memory_files,
@@ -60,7 +62,7 @@ from memory import (
     delete_memory,
     delete_user_memory
 )
-from openai_client import generate_response, get_subreddit_posts
+from openai_client import generate_response, get_subreddit_posts, analyze_image
 from credentials import token as TOKEN
 from nerdscore import increase_nerdscore
 from metrics import messages_sent, update_metrics
@@ -381,14 +383,16 @@ async def on_ready():
     except Exception:
         if DEBUG:
             print("Failed to start BackupManager")
-    await bot.tree.sync()
-    print(f"Ready as {bot.user}")
     try:
         if not hasattr(bot, 'status_task'):
             bot.status_task = bot.loop.create_task(update_status())
     except Exception:
         if DEBUG:
             print("Failed to start status update task")
+    TEMP_DIR.mkdir(parents=True, exist_ok=True)
+    
+    await bot.tree.sync()
+    print(f"Ready as {bot.user}")
 
 
 # Main message handler
@@ -560,7 +564,18 @@ async def send_message(message, system_msg=None, force_response=False, functions
             content.append({'type': 'input_text', 'text': f"Message content: {enriched}"})
             for attach in msg.attachments:
                 if attach.content_type and attach.content_type.startswith('image/'):
-                    content.append({'type': 'input_image', 'image_url': attach.url})
+                    file_path = os.path.join(TEMP_DIR, f"{attach.id}_{attach.filename}")
+                    await attach.save(file_path)
+
+                    image_desc = await analyze_image(file_path)
+
+                    content.append({'type': 'input_text', 'text': f"Image description: {image_desc}"})
+
+                    try:
+                        os.remove(file_path)
+                    except Exception:
+                        print(f"Failed to delete temp file {file_path}")
+                        pass
 
             history.append({'role': role, 'content': content})
             last_role = role
@@ -638,7 +653,18 @@ async def send_message(message, system_msg=None, force_response=False, functions
         user_content.append({'type': 'input_text', 'text': f"Message content: {enriched_msg}"})
     for attach in message.attachments:
         if attach.content_type and attach.content_type.startswith('image/'):
-            user_content.append({'type': 'input_image', 'image_url': attach.url})
+            file_path = os.path.join(TEMP_DIR, f"{attach.id}_{attach.filename}")
+            await attach.save(file_path)
+
+            image_desc = await analyze_image(file_path)
+
+            user_content.append({'type': 'input_text', 'text': f"Image description: {image_desc}"})
+
+            try:
+                os.remove(file_path)
+            except Exception:
+                print(f"Failed to delete temp file {file_path}")
+                pass
 
     messages = [
     *history,
@@ -880,19 +906,39 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 target_user_id = args.get('user_id') or message.author.id
                 server_icon = args.get('server_icon', False)
                 if server_icon and message.guild:
-                    icon_url = message.guild.icon.url if message.guild.icon else None
-                    if icon_url:
-                        tool_result = [{"type": "input_image", "image_url": icon_url}]
-                        is_image = True
+                    icon = message.guild.icon if message.guild.icon else None
+                    if icon:
+                        file_path = os.path.join(TEMP_DIR, str(message.guild.id))
+                        await icon.save(file_path)
+
+                        image_desc = await analyze_image(file_path)
+
+                        tool_result = f"Server icon description: {image_desc}"
+
+                        try:
+                            os.remove(file_path)
+                        except Exception:
+                            print(f"Failed to delete temp file {file_path}")
+                            pass
                     else:
                         tool_result = "This server does not have an icon."
                 else:
                     try:
                         target_user = await bot.fetch_user(int(target_user_id))
-                        avatar_url = target_user.display_avatar.url if target_user.display_avatar else None
-                        if avatar_url:
-                            tool_result = [{"type": "input_image", "image_url": avatar_url}]
-                            is_image = True
+                        avatar = target_user.display_avatar if target_user.display_avatar else None
+                        if avatar:
+                            file_path = os.path.join(TEMP_DIR, str(target_user.id))
+                            await avatar.save(file_path)
+
+                            image_desc = await analyze_image(file_path)
+
+                            tool_result = f"User profile picture description: {image_desc}"
+
+                            try:
+                                os.remove(file_path)
+                            except Exception:
+                                print(f"Failed to delete temp file {file_path}")
+                                pass
                         else:
                             tool_result = "This user does not have a profile picture."
                     except Exception as e:
