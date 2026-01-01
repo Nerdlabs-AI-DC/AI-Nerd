@@ -147,6 +147,8 @@ sync_knowledge()
 
 backup_manager = BackupManager(storage._DB_PATH)
 
+ALLOWED_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
+
 def check_send_perm(channel: discord.abc.Messageable) -> bool:
     try:
         if isinstance(channel, discord.DMChannel):
@@ -563,19 +565,30 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 enriched = msg.content or ''
             content.append({'type': 'input_text', 'text': f"Message content: {enriched}"})
             for attach in msg.attachments:
-                if attach.content_type and attach.content_type.startswith('image/'):
+                filename = attach.filename.lower()
+                ext = os.path.splitext(filename)[1]
+
+                if ext in ALLOWED_IMAGE_EXTS:
                     file_path = os.path.join(TEMP_DIR, f"{attach.id}_{attach.filename}")
                     await attach.save(file_path)
 
                     image_desc = await analyze_image(file_path)
-
-                    content.append({'type': 'input_text', 'text': f"Image description: {image_desc}"})
+                    content.append({
+                        'type': 'input_text',
+                        'text': f"Image description: {image_desc}"
+                    })
 
                     try:
                         os.remove(file_path)
                     except Exception:
                         print(f"Failed to delete temp file {file_path}")
-                        pass
+
+                else:
+                    content.append({
+                        'type': 'input_text',
+                        'text': f"Attachment: {attach.filename}"
+                    })
+
 
             history.append({'role': role, 'content': content})
             last_role = role
@@ -652,19 +665,29 @@ async def send_message(message, system_msg=None, force_response=False, functions
             enriched_msg = message.content or ''
         user_content.append({'type': 'input_text', 'text': f"Message content: {enriched_msg}"})
     for attach in message.attachments:
-        if attach.content_type and attach.content_type.startswith('image/'):
+        filename = attach.filename.lower()
+        ext = os.path.splitext(filename)[1]
+
+        if ext in ALLOWED_IMAGE_EXTS:
             file_path = os.path.join(TEMP_DIR, f"{attach.id}_{attach.filename}")
             await attach.save(file_path)
 
             image_desc = await analyze_image(file_path)
-
-            user_content.append({'type': 'input_text', 'text': f"Image description: {image_desc}"})
+            user_content.append({
+                'type': 'input_text',
+                'text': f"Image description: {image_desc}"
+            })
 
             try:
                 os.remove(file_path)
             except Exception:
                 print(f"Failed to delete temp file {file_path}")
-                pass
+
+        else:
+            user_content.append({
+                'type': 'input_text',
+                'text': f"Attachment: {attach.filename}"
+            })
 
     messages = [
     *history,
