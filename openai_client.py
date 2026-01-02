@@ -90,7 +90,8 @@ def get_subreddit_posts(subreddit: str, limit: int):
         return []
 
 async def analyze_image(path):
-    print(f"Analyzing image: {path}")
+    if DEBUG:
+        print(f"Analyzing image: {path}")
     response = await asyncio.to_thread(chat,
         model='deepseek-ocr:3b',
         messages=[

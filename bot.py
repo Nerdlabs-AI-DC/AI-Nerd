@@ -40,7 +40,6 @@ from config import (
     MEMORY_TOP_K,
     KNOWLEDGE_TOP_K,
     NEWS_SUBREDDITS,
-    EVEN_SHORTER_SYSTEM,
     TEMP_DIR
 )
 from memory import (
@@ -1227,16 +1226,16 @@ async def update_status():
         if DEBUG:
             print("Updating status message...")
         news_posts = await get_news_posts()
-        message = f"""Create a short Discord status message for the bot based on one of the following news headlines:
+        messages = [{"role": "user", "content": f"""Create a short Discord status message for the bot based on one of the following news headlines:
 {news_posts}
 Choose one headline and turn it into a concise, engaging Discord status.
 Do not mention the headline source, and do not add explanations or extra commentary.
-Respond with only the final status message."""
+Respond with only the final status message."""}]
         response = await generate_response(
-            message,
+            messages,
             tools=None,
             tool_choice=None,
-            instructions=EVEN_SHORTER_SYSTEM
+            instructions=SYSTEM_SHORT
         )
         status_text = response.output_text
         if DEBUG:
