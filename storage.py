@@ -2,6 +2,7 @@ import sqlite3
 import json
 import threading
 from pathlib import Path
+from datetime import datetime, timezone, timedelta
 
 _DB_PATH = Path("data") / "storage.db"
 _LOCK = threading.Lock()
@@ -241,3 +242,65 @@ def is_banned_user_notified(user_id: int) -> bool:
         return bool(meta.get('notified'))
     except Exception:
         return False
+
+
+def load_image_descriptions() -> dict:
+    return get_json('image_descriptions', {}) or {}
+
+
+def get_image_description(attach_id) -> str | None:
+    try:
+        imgs = load_image_descriptions()
+        ent = imgs.get(str(attach_id))
+        if not ent:
+            return None
+        try:
+            ent['last_used'] = datetime.now(timezone.utc).isoformat()
+            imgs[str(attach_id)] = ent
+            set_json('image_descriptions', imgs)
+        except Exception:
+            pass
+        return ent.get('description')
+    except Exception:
+        return None
+
+
+def save_image_description(attach_id, description: str) -> None:
+    try:
+        imgs = load_image_descriptions()
+        imgs[str(attach_id)] = {
+            'description': description,
+            'last_used': datetime.now(timezone.utc).isoformat()
+        }
+        set_json('image_descriptions', imgs)
+    except Exception:
+        raise
+
+
+def prune_image_descriptions(age_hours: int = 24) -> list:
+    try:
+        imgs = load_image_descriptions()
+        now = datetime.now(timezone.utc)
+        removed = []
+        for k, v in list(imgs.items()):
+            lu = v.get('last_used') if isinstance(v, dict) else None
+            if not lu:
+                removed.append(k)
+                del imgs[k]
+                continue
+            try:
+                last_used = datetime.fromisoformat(lu)
+                if last_used.tzinfo is None:
+                    last_used = last_used.replace(tzinfo=timezone.utc)
+            except Exception:
+                removed.append(k)
+                del imgs[k]
+                continue
+            if (now - last_used) > timedelta(hours=age_hours):
+                removed.append(k)
+                del imgs[k]
+        if removed:
+            set_json('image_descriptions', imgs)
+        return removed
+    except Exception:
+        return []

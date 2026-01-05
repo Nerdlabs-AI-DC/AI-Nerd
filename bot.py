@@ -390,6 +390,12 @@ async def on_ready():
     except Exception:
         if DEBUG:
             print("Failed to start status update task")
+    try:
+        if not hasattr(bot, 'prune_task'):
+            bot.prune_task = bot.loop.create_task(prune_image_descriptions_task())
+    except Exception:
+        if DEBUG:
+            print("Failed to start image description prune task")
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
     
     await bot.tree.sync()
@@ -568,19 +574,34 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 ext = os.path.splitext(filename)[1]
 
                 if ext in ALLOWED_IMAGE_EXTS:
-                    file_path = os.path.join(TEMP_DIR, f"{attach.id}_{attach.filename}")
-                    await attach.save(file_path)
-
-                    image_desc = await analyze_image(file_path)
-                    content.append({
-                        'type': 'input_text',
-                        'text': f"Image description: {image_desc}"
-                    })
-
                     try:
-                        os.remove(file_path)
+                        cached = storage.get_image_description(attach.id)
                     except Exception:
-                        print(f"Failed to delete temp file {file_path}")
+                        cached = None
+                    if cached:
+                        content.append({'type': 'input_text', 'text': f"Image description: {cached}"})
+                    else:
+                        file_path = os.path.join(TEMP_DIR, f"{attach.id}_{attach.filename}")
+                        await attach.save(file_path)
+
+                        image_desc = await analyze_image(file_path)
+                        content.append({
+                            'type': 'input_text',
+                            'text': f"Image description: {image_desc}"
+                        })
+
+                        try:
+                            try:
+                                storage.save_image_description(attach.id, image_desc)
+                            except Exception:
+                                if DEBUG:
+                                    print("Failed to save image description to storage")
+                        finally:
+                            try:
+                                os.remove(file_path)
+                            except Exception:
+                                if DEBUG:
+                                    print(f"Failed to delete temp file {file_path}")
 
                 else:
                     content.append({
@@ -668,25 +689,41 @@ async def send_message(message, system_msg=None, force_response=False, functions
         ext = os.path.splitext(filename)[1]
 
         if ext in ALLOWED_IMAGE_EXTS:
-            file_path = os.path.join(TEMP_DIR, f"{attach.id}_{attach.filename}")
-            await attach.save(file_path)
-
-            image_desc = await analyze_image(file_path)
-            user_content.append({
-                'type': 'input_text',
-                'text': f"Image description: {image_desc}"
-            })
-
             try:
-                os.remove(file_path)
+                cached = storage.get_image_description(attach.id)
             except Exception:
-                print(f"Failed to delete temp file {file_path}")
+                cached = None
+            if cached:
+                user_content.append({'type': 'input_text', 'text': f"Image description: {cached}"})
+            else:
+                file_path = os.path.join(TEMP_DIR, f"{attach.id}_{attach.filename}")
+                await attach.save(file_path)
+
+                image_desc = await analyze_image(file_path)
+                user_content.append({
+                    'type': 'input_text',
+                    'text': f"Image description: {image_desc}"
+                })
+
+                try:
+                    try:
+                        storage.save_image_description(attach.id, image_desc)
+                    except Exception:
+                        if DEBUG:
+                            print("Failed to save image description to storage")
+                finally:
+                    try:
+                        os.remove(file_path)
+                    except Exception:
+                        if DEBUG:
+                            print(f"Failed to delete temp file {file_path}")
 
         else:
             user_content.append({
                 'type': 'input_text',
                 'text': f"Attachment: {attach.filename}"
             })
+
 
     messages = [
     *history,
@@ -1249,6 +1286,19 @@ Respond with only the final status message."""}]
         if sleep_seconds < 0:
             sleep_seconds = 0
         await asyncio.sleep(sleep_seconds)
+
+
+async def prune_image_descriptions_task():
+    await bot.wait_until_ready()
+    while not bot.is_closed():
+        try:
+            removed = storage.prune_image_descriptions(24)
+            if DEBUG and removed:
+                print(f"Pruned {len(removed)} stale image descriptions: {removed}")
+        except Exception:
+            if DEBUG:
+                print("Failed to prune image descriptions")
+        await asyncio.sleep(3600)
 
 # Runs the bot
 if __name__ == '__main__':
