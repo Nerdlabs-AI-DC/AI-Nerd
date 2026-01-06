@@ -12,7 +12,7 @@ from credentials import ai_key
 _oai = OpenAI(api_key=ai_key, base_url="https://openrouter.ai/api/v1")
 
 reddit_headers = {
-    "User-Agent": "AI-Nerd/1.0 (Nerdlabs AI)"
+    "User-Agent": "AI-Nerd/2.0 (Nerdlabs AI)"
 }
 
 async def generate_response(messages, tools=None, tool_choice=None, model=MODEL, channel_id=None, instructions=None, effort=None):
@@ -105,7 +105,7 @@ async def analyze_image(path):
     )
     return response.message.content
 
-def reddit_search(query: str, limit: int = 5):
+async def reddit_search(query: str, limit: int = 5):
     url = "https://www.reddit.com/search.json"
     params = {
         "q": query,
@@ -126,8 +126,6 @@ def reddit_search(query: str, limit: int = 5):
 
             title = html.unescape(post.get("title", ""))
             text = html.unescape(post.get("selftext", ""))
-            subreddit = post.get("subreddit", "")
-            url = post.get("url_overridden_by_dest") or post.get("url")
 
             combined = f"{title}\n{text}".strip()
 

@@ -61,7 +61,7 @@ from memory import (
     delete_memory,
     delete_user_memory
 )
-from openai_client import generate_response, get_subreddit_posts, analyze_image
+from openai_client import generate_response, get_subreddit_posts, analyze_image, reddit_search
 from credentials import token as TOKEN
 from nerdscore import increase_nerdscore
 from metrics import messages_sent, update_metrics
@@ -389,6 +389,17 @@ tools = [
                 'user_id': {'type': 'integer', 'description': 'The user ID to view the profile picture of. Leave empty to view the profile picture of the message author.'},
                 'server_icon': {'type': 'boolean', 'description': 'If true, view the server icon instead of the user profile picture. Do not use if the current server is a DM.'}
             }
+        }
+    },
+    {
+        'name': 'search_web',
+        'description': 'Search the web for a query.',
+        'parameters': {
+            'type': 'object',
+            'properties': {
+                'query': {'type': 'string'}
+            },
+            'required': ['query']
         }
     }
 ]
@@ -1025,6 +1036,14 @@ async def send_message(message, system_msg=None, force_response=False, functions
                             tool_result = "This user does not have a profile picture."
                     except Exception as e:
                         tool_result = f"Error fetching user: {e}"
+                
+            elif name == 'search_web':
+                query = args.get('query')
+                search_results = await reddit_search(query)
+                if search_results:
+                    tool_result = f"Web search results for '{query}':\n{search_results}"
+                else:
+                    tool_result = f"No results found for '{query}'."
 
             if not is_image:
                 tool_result = json.dumps({"result": tool_result})

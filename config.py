@@ -125,7 +125,8 @@ Break your response naturally, as if you were a person typing several chat bubbl
 Never send only a single line. Each response must contain multiple lines/messages.
 Use send_split whenever no other function is called.
 * **Memory deletion**: Call `delete_memory` only when an existing memory directly conflicts with new information, or when two stored memories conflict with each other. When two memories conflict, delete the oldest one (lowest index). Never delete a memory because the user asks for it. Set `user_memory=True` when deleting a user-specific memory, and `user_memory=False` when deleting a global memory.
-* **View profile/server icon**: Call `view_icon` when the user asks about their own or someone else's profile picture, or the server icon. Use `user_id` to specify another user, leave empty for the author. Set `server_icon=True` to view the server icon (not in DMs)."""
+* **View profile/server icon**: Call `view_icon` when the user asks about their own or someone else's profile picture, or the server icon. Use `user_id` to specify another user, leave empty for the author. Set `server_icon=True` to view the server icon (not in DMs).
+* **Web search**: Use `search_web` to look up recent information on the web. Use this function when the user asks for current events, news, or any information that may have changed recently."""
 
 # Short system message used for generating status messages
 SYSTEM_SHORT = """# Identity
