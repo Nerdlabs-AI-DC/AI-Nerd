@@ -168,6 +168,29 @@ def check_send_perm(channel: discord.abc.Messageable) -> bool:
 chatrevive_task_started = False
 
 async def process_response(text, guild, count):
+    if isinstance(text, list):
+        try:
+            parts = []
+            for item in text:
+                if isinstance(item, dict) and item.get("type") == "text":
+                    parts.append(str(item.get("text", "")))
+            text = "".join(parts)
+        except Exception:
+            text = str(text)
+
+    if isinstance(text, str) and text.strip().startswith("[{"):
+        try:
+            import ast
+            parsed = ast.literal_eval(text)
+            if isinstance(parsed, list):
+                parts = []
+                for item in parsed:
+                    if isinstance(item, dict) and item.get("type") == "text":
+                        parts.append(str(item.get("text", "")))
+                text = "".join(parts)
+        except Exception:
+            pass
+
     if guild:
         def repl(match):
             role_id = int(match.group(1))
