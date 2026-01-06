@@ -885,7 +885,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 messages.append({
                     "type": "function_call_output",
                     "call_id": call_id,
-                    "output": json.dumps({"result": tool_result})
+                    "output": json.dumps({"result": tool_result + "\nTool execution is complete. Do not call any more functions. Respond only with plain text to the user."})
                 })
                 break
 
