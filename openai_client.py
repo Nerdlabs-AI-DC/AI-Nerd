@@ -2,6 +2,7 @@ import asyncio
 import functools
 import base64
 import requests
+import html
 from openai import OpenAI
 from openrouter import OpenRouter
 from ollama import chat
@@ -103,3 +104,36 @@ async def analyze_image(path):
         ],
     )
     return response.message.content
+
+def reddit_search(query: str, limit: int = 5):
+    url = "https://www.reddit.com/search.json"
+    params = {
+        "q": query,
+        "limit": limit,
+        "sort": "relevance",
+        "t": "year"
+    }
+
+    try:
+        r = requests.get(url, params=params, headers=reddit_headers, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+
+        results = []
+
+        for item in data["data"]["children"]:
+            post = item["data"]
+
+            title = html.unescape(post.get("title", ""))
+            text = html.unescape(post.get("selftext", ""))
+            subreddit = post.get("subreddit", "")
+            url = post.get("url_overridden_by_dest") or post.get("url")
+
+            combined = f"{title}\n{text}".strip()
+
+            results.append({combined})
+
+        return results
+
+    except Exception:
+        return []
