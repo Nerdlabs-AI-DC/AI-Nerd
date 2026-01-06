@@ -1039,9 +1039,11 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 
             elif name == 'search_web':
                 query = args.get('query')
-                search_results = await reddit_search(query)
+                search_results = await reddit_search(query, 3)
                 if search_results:
                     tool_result = f"Web search results for '{query}':\n{search_results}"
+                    if DEBUG:
+                        print(f"Web search results for '{query}': {search_results}")
                 else:
                     tool_result = f"No results found for '{query}'."
 
