@@ -256,7 +256,7 @@ def setup(bot):
             input_list,
             tools=None,
             tool_choice=None,
-            model=COMMANDS_MODEL
+            user = f"8ball_{interaction.user.name}:{interaction.user.id}"
         )
 
         msg_text = completion.output_text
@@ -317,7 +317,8 @@ def setup(bot):
                 messages,
                 tools=tools,
                 tool_choice={"type": "function", "name": "create_trivia"},
-                model=COMMANDS_MODEL
+                model=COMMANDS_MODEL,
+                user = f"trivia_{interaction.user.name}:{interaction.user.id}"
             )
             args = {}
             for item in completion.output:
@@ -483,7 +484,8 @@ Current board state: """ + str(self.board)}
                     tools=None,
                     tool_choice=None,
                     effort="low",
-                    model=COMMANDS_MODEL
+                    model=COMMANDS_MODEL,
+                    user = f"tictactoe_{interaction.user.name}:{interaction.user.id}"
                 )
                 msg_obj = completion.output_text
                 if DEBUG:
@@ -633,7 +635,8 @@ Current board state: """ + str(self.board)}
                 messages,
                 tools=tools,
                 tool_choice={"type": "function", "name": "create_trivia"},
-                model=COMMANDS_MODEL
+                model=COMMANDS_MODEL,
+                user = f"dailyquiz_{interaction.user.name}:{interaction.user.id}"
             )
             args = {}
             for item in completion.output:
@@ -701,7 +704,7 @@ Otherwise output only: False
                 if DEBUG:
                     print('--- DAILY QUIZ REQUEST ---')
                     print(json.dumps(checkmessages, ensure_ascii=False, indent=2))
-                completion = await generate_response(checkmessages, model=COMMANDS_MODEL)
+                completion = await generate_response(checkmessages, model=COMMANDS_MODEL, user=f"dailyquiz_{interaction.user.name}:{interaction.user.id}")
                 if DEBUG:
                     print('--- RESPONSE ---')
                     print(completion.output_text)
@@ -739,7 +742,8 @@ Otherwise output only: False
                         messages,
                         tools=tools,
                         tool_choice={"type": "function", "name": "create_trivia"},
-                        model=COMMANDS_MODEL
+                        model=COMMANDS_MODEL,
+                        user = f"dailyquiz_{interaction.user.name}:{interaction.user.id}"
                     )
                     args = {}
                     for item in completion.output:
@@ -800,7 +804,7 @@ Otherwise output only: False
                     if DEBUG:
                         print('--- DAILY QUIZ REQUEST ---')
                         print(json.dumps(checkmessages, ensure_ascii=False, indent=2))
-                    completion = await generate_response(checkmessages, model=COMMANDS_MODEL)
+                    completion = await generate_response(checkmessages, model=COMMANDS_MODEL, user=f"dailyquiz_{interaction.user.name}:{interaction.user.id}")
                     if DEBUG:
                         print('--- RESPONSE ---')
                         print(completion.output_text)

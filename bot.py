@@ -798,14 +798,21 @@ async def send_message(message, system_msg=None, force_response=False, functions
                     tool_choice=functioncall,
                     channel_id=message.channel.id,
                     instructions=system,
-                    model=model_to_use
+                    model=model_to_use,
+                    user=f"naturalreplies_{message.author.name}:{message.author.id}"
                 )
             except Exception:
                 return
     else:
         async with message.channel.typing():
             count = increment_user_daily_count(user_id)
-            model_to_use = CHEAP_MODEL if count > DAILY_MESSAGE_LIMIT else MODEL
+            user = None
+            if count > DAILY_MESSAGE_LIMIT:
+                model_to_use = CHEAP_MODEL
+                user = f"limited_{message.author.name}:{message.author.id}"
+            else:
+                model_to_use = MODEL
+                user = f"standard_{message.author.name}:{message.author.id}"
             try:
                 completion = await generate_response(
                     messages,
@@ -813,7 +820,8 @@ async def send_message(message, system_msg=None, force_response=False, functions
                     tool_choice=functioncall,
                     channel_id=message.channel.id,
                     instructions=system,
-                    model=model_to_use
+                    model=model_to_use,
+                    user=user
                 )
             except Exception:
                 if count > DAILY_MESSAGE_LIMIT:
@@ -1067,7 +1075,8 @@ async def send_message(message, system_msg=None, force_response=False, functions
                     tools=None,
                     tool_choice=None,
                     channel_id=message.channel.id,
-                    instructions=system
+                    instructions=system,
+                    user = f"tool_{message.author.name}:{message.author.id}"
                 )
                 msg_obj = MsgObj(completion2.output_text, getattr(completion2, 'tool_calls', None))
 
@@ -1329,7 +1338,8 @@ Respond with only the final status message."""}]
             messages,
             tools=None,
             tool_choice=None,
-            instructions=SYSTEM_SHORT
+            instructions=SYSTEM_SHORT,
+            user="status_update"
         )
         status_text = response.output_text
         if DEBUG:

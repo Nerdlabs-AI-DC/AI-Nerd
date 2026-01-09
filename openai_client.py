@@ -15,7 +15,7 @@ reddit_headers = {
     "User-Agent": "AI-Nerd/2.0 (Nerdlabs AI)"
 }
 
-async def generate_response(messages, tools=None, tool_choice=None, model=MODEL, channel_id=None, instructions=None, effort=None):
+async def generate_response(messages, tools=None, tool_choice=None, model=MODEL, channel_id=None, instructions=None, effort=None, user=None):
     loop = asyncio.get_event_loop()
     if DEBUG:
         print(f"Instructions: {instructions}. Generating response with model: {model} and channel id: {channel_id}.")
@@ -59,6 +59,8 @@ async def generate_response(messages, tools=None, tool_choice=None, model=MODEL,
                     "enabled": False
                 }
             }
+        if user:
+            kwargs["user"] = user
     completion = await loop.run_in_executor(
         None,
         functools.partial(
