@@ -14,7 +14,7 @@ IMAGE_MODEL = "deepseek-ocr:3b" # Model to use for image analysis (default: "dee
 MEMORY_TOP_K = 3 # Number of relevant memories to include in context (default: 3)
 KNOWLEDGE_TOP_K = 3 # Number of relevant knowledge items to include in context (default: 3)
 DEBUG = False # Enables debug logging (default: False)
-NATURAL_REPLIES_INTERVAL = 600 # Time in seconds between natural replies message checks (default: 600)
+NATURAL_REPLIES_INTERVAL = 1200 # Time in seconds between natural replies message checks (default: 600)
 MEMORY_LIMIT = 500 # Max number of memories to store (per user and global memories) (default: 500)
 DAILY_MESSAGE_LIMIT = 50 # Max number of messages per user per day before switching to fallback model (default: 50)
 OWNER_ID = 686109465971392512 # User id of the bot owner (for admin commands)
@@ -198,7 +198,7 @@ A meme is sent,
 The conversation is about something nerdy,
 AI Nerd 2 is mentioned,
 You are in a conversation with user
-If none of these conditions are met, you must always call the cancel_response function."""
+If none of these apply, you may start a new topic, make a joke, or comment on the channel."""
 
 # List of subreddits to fetch news from for status
 NEWS_SUBREDDITS = [

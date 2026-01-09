@@ -5,8 +5,8 @@ import requests
 import html
 from openai import OpenAI
 from openrouter import OpenRouter
-from ollama import chat
-from config import MODEL, DEBUG, EMBED_MODEL
+from ollama import chat, generate
+from config import MODEL, DEBUG, EMBED_MODEL, IMAGE_MODEL
 from credentials import ai_key
 
 _oai = OpenAI(api_key=ai_key, base_url="https://openrouter.ai/api/v1")
@@ -94,7 +94,7 @@ async def analyze_image(path):
     if DEBUG:
         print(f"Analyzing image: {path}")
     response = await asyncio.to_thread(chat,
-        model='deepseek-ocr:3b',
+        model=IMAGE_MODEL,
         messages=[
             {
             'role': 'user',
@@ -135,3 +135,9 @@ async def reddit_search(query: str, limit: int = 5):
 
     except Exception:
         return []
+    
+def load_models():
+    generate(model=IMAGE_MODEL, keep_alive='12h')
+
+def unload_models():
+    generate(model=IMAGE_MODEL, keep_alive='0')

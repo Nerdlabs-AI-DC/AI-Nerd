@@ -24,6 +24,8 @@ import random
 import datetime
 import re
 import os
+import signal
+import sys
 from config import (
     RESPOND_TO_PINGS,
     HISTORY_SIZE,
@@ -61,7 +63,7 @@ from memory import (
     delete_memory,
     delete_user_memory
 )
-from openai_client import generate_response, get_subreddit_posts, analyze_image, reddit_search
+from openai_client import generate_response, get_subreddit_posts, analyze_image, reddit_search, load_models, unload_models
 from credentials import token as TOKEN
 from nerdscore import increase_nerdscore
 from metrics import messages_sent, update_metrics
@@ -430,6 +432,11 @@ async def on_ready():
     except Exception:
         if DEBUG:
             print("Failed to start image description prune task")
+    try:
+        load_models()
+    except Exception:
+        if DEBUG:
+            print("Failed to load models on startup")
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
     
     await bot.tree.sync()
@@ -498,13 +505,13 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 chance = 0.9
             if rate == "high":
                 chance = 1
-        elif delta.total_seconds() > 36000:
-            if rate == "low":
-                chance = 0.25
-            if rate == "mid":
-                chance = 0.5
-            if rate == "high":
-                chance = 0.75
+        # elif delta.total_seconds() > 36000:
+        #     if rate == "low":
+        #         chance = 0.25
+        #     if rate == "mid":
+        #         chance = 0.5
+        #     if rate == "high":
+        #         chance = 0.75
         elif delta.total_seconds() > 300:
             if rate == "low":
                 chance = 0.05
@@ -1256,7 +1263,13 @@ async def freewill_task():
                     sid = str(guild.id)
                     guild_settings = settings.get(sid, {})
                     rate = guild_settings.get('freewill_rate', "mid")
-                    if rate == 0:
+                    if rate == "low":
+                        chance = 0.25
+                    if rate == "mid":
+                        chance = 0.5
+                    if rate == "high":
+                        chance = 0.75
+                    if random.random() >= chance:
                         continue
                 messages = []
                 try:
@@ -1343,6 +1356,17 @@ async def prune_image_descriptions_task():
             if DEBUG:
                 print("Failed to prune image descriptions")
         await asyncio.sleep(3600)
+
+def shutdown_handler(signum, frame):
+    print("Shutting down...")
+    unload_models()
+
+    loop = asyncio.get_event_loop()
+    loop.create_task(bot.close())
+
+signal.signal(signal.SIGINT, shutdown_handler)
+signal.signal(signal.SIGTERM, shutdown_handler)
+
 
 # Runs the bot
 if __name__ == '__main__':
