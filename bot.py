@@ -42,7 +42,8 @@ from config import (
     MEMORY_TOP_K,
     KNOWLEDGE_TOP_K,
     NEWS_SUBREDDITS,
-    TEMP_DIR
+    TEMP_DIR,
+    EMOJI_MAP
 )
 from memory import (
     init_memory_files,
@@ -169,6 +170,15 @@ def check_send_perm(channel: discord.abc.Messageable) -> bool:
 
 chatrevive_task_started = False
 
+def replace_custom_emojis(text: str):
+    def repl(match):
+        name = match.group(1)
+        if name in EMOJI_MAP:
+            return f"<:{name}:{EMOJI_MAP[name]}>"
+        return match.group(0)
+
+    return re.sub(r":([a-zA-Z0-9_]+):", repl, text)
+
 async def process_response(text, guild, count):
     if isinstance(text, list):
         try:
@@ -204,6 +214,9 @@ async def process_response(text, guild, count):
     if count == DAILY_MESSAGE_LIMIT:
         timestamp = int((datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=timezone.utc) + timedelta(days=1)).timestamp())
         text += f"\n-# It seems that you have been chatting a lot today. To reduce costs, a cheaper model will be used for the rest of the day. Responses may be slower and unstable. Your limit resets <t:{timestamp}:R>."
+    
+    text = replace_custom_emojis(text)
+
     return text
 
 
