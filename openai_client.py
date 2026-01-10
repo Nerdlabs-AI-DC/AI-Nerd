@@ -104,6 +104,7 @@ async def analyze_image(path):
             'images': [path],
             }
         ],
+        keep_alive='24h'
     )
     return response.message.content
 
@@ -139,7 +140,7 @@ async def reddit_search(query: str, limit: int = 5):
         return []
     
 def load_models():
-    generate(model=IMAGE_MODEL, keep_alive='12h')
+    generate(model=IMAGE_MODEL, keep_alive='24h')
 
 def unload_models():
     generate(model=IMAGE_MODEL, keep_alive='0')
