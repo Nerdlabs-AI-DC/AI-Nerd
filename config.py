@@ -1,4 +1,4 @@
-# AI Nerd 2 version: 2.0.0 beta 4
+# AI Nerd 2 version: 2.0.0 beta 5
 
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,7 +14,7 @@ IMAGE_MODEL = "deepseek-ocr:3b" # Model to use for image analysis (default: "dee
 MEMORY_TOP_K = 3 # Number of relevant memories to include in context (default: 3)
 KNOWLEDGE_TOP_K = 3 # Number of relevant knowledge items to include in context (default: 3)
 DEBUG = False # Enables debug logging (default: False)
-NATURAL_REPLIES_INTERVAL = 1200 # Time in seconds between natural replies message checks (default: 600)
+NATURAL_REPLIES_INTERVAL = 1200 # Time in seconds between natural replies message checks (default: 1200)
 MEMORY_LIMIT = 500 # Max number of memories to store (per user and global memories) (default: 500)
 DAILY_MESSAGE_LIMIT = 50 # Max number of messages per user per day before switching to fallback model (default: 50)
 OWNER_ID = 686109465971392512 # User id of the bot owner (for admin commands)
