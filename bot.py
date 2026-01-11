@@ -991,6 +991,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 react_msg = await message.channel.fetch_message(args['target'])
                 for emoji in args['emojis']:
                     try:
+                        emoji = replace_custom_emojis(emoji)
                         await react_msg.add_reaction(emoji)
                         await asyncio.sleep(0.5)
                     except Exception as e:
