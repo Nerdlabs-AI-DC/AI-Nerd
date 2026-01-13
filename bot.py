@@ -635,27 +635,17 @@ async def send_message(message, system_msg=None, force_response=False, functions
                     if cached:
                         content.append({'type': 'input_text', 'text': f"Image description: {cached}"})
                     else:
-                        file_path = os.path.join(TEMP_DIR, f"{attach.id}_{attach.filename}")
-                        await attach.save(file_path)
-
-                        image_desc = await analyze_image(file_path)
+                        image_desc = await analyze_image(attach.url)
                         content.append({
                             'type': 'input_text',
                             'text': f"Image description: {image_desc}"
                         })
 
                         try:
-                            try:
-                                storage.save_image_description(attach.id, image_desc)
-                            except Exception:
-                                if DEBUG:
-                                    print("Failed to save image description to storage")
-                        finally:
-                            try:
-                                os.remove(file_path)
-                            except Exception:
-                                if DEBUG:
-                                    print(f"Failed to delete temp file {file_path}")
+                            storage.save_image_description(attach.id, image_desc)
+                        except Exception:
+                            if DEBUG:
+                                print("Failed to save image description to storage")
 
                 else:
                     content.append({
@@ -750,27 +740,17 @@ async def send_message(message, system_msg=None, force_response=False, functions
             if cached:
                 user_content.append({'type': 'input_text', 'text': f"Image description: {cached}"})
             else:
-                file_path = os.path.join(TEMP_DIR, f"{attach.id}_{attach.filename}")
-                await attach.save(file_path)
-
-                image_desc = await analyze_image(file_path)
+                image_desc = await analyze_image(attach.url)
                 user_content.append({
                     'type': 'input_text',
                     'text': f"Image description: {image_desc}"
                 })
 
                 try:
-                    try:
-                        storage.save_image_description(attach.id, image_desc)
-                    except Exception:
-                        if DEBUG:
-                            print("Failed to save image description to storage")
-                finally:
-                    try:
-                        os.remove(file_path)
-                    except Exception:
-                        if DEBUG:
-                            print(f"Failed to delete temp file {file_path}")
+                    storage.save_image_description(attach.id, image_desc)
+                except Exception:
+                    if DEBUG:
+                        print("Failed to save image description to storage")
 
         else:
             user_content.append({
@@ -1030,18 +1010,9 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 if server_icon and message.guild:
                     icon = message.guild.icon if message.guild.icon else None
                     if icon:
-                        file_path = os.path.join(TEMP_DIR, str(message.guild.id))
-                        await icon.save(file_path)
-
-                        image_desc = await analyze_image(file_path)
+                        image_desc = await analyze_image(icon.url)
 
                         tool_result = f"Server icon description: {image_desc}"
-
-                        try:
-                            os.remove(file_path)
-                        except Exception:
-                            print(f"Failed to delete temp file {file_path}")
-                            pass
                     else:
                         tool_result = "This server does not have an icon."
                 else:
@@ -1049,18 +1020,10 @@ async def send_message(message, system_msg=None, force_response=False, functions
                         target_user = await bot.fetch_user(int(target_user_id))
                         avatar = target_user.display_avatar if target_user.display_avatar else None
                         if avatar:
-                            file_path = os.path.join(TEMP_DIR, str(target_user.id))
-                            await avatar.save(file_path)
-
-                            image_desc = await analyze_image(file_path)
+                            image_desc = await analyze_image(avatar.url)
 
                             tool_result = f"User profile picture description: {image_desc}"
-
-                            try:
-                                os.remove(file_path)
-                            except Exception:
-                                print(f"Failed to delete temp file {file_path}")
-                                pass
+                            
                         else:
                             tool_result = "This user does not have a profile picture."
                     except Exception as e:
