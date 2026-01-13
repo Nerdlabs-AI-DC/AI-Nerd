@@ -92,21 +92,25 @@ def get_subreddit_posts(subreddit: str, limit: int):
     except Exception:
         return []
 
-async def analyze_image(path):
+async def analyze_image(image):
     if DEBUG:
-        print(f"Analyzing image: {path}")
-    response = await asyncio.to_thread(chat,
-        model=IMAGE_MODEL,
+        print(f"Analyzing image: {image}")
+    response = await generate_response(
         messages=[
             {
-            'role': 'user',
-            'content': 'Describe this image in detail.',
-            'images': [path],
+                "role": "user",
+                "content": [
+                    {"type": "input_text", "text": "Describe this image in detail."},
+                    {
+                        "type": "input_image",
+                        "image_url": image
+                    }
+                ]
             }
         ],
-        keep_alive='24h'
+        model=IMAGE_MODEL,
     )
-    return response.message.content
+    return response.output_text
 
 async def reddit_search(query: str, limit: int = 5):
     url = "https://www.reddit.com/search.json"
@@ -140,7 +144,9 @@ async def reddit_search(query: str, limit: int = 5):
         return []
     
 def load_models():
-    generate(model=IMAGE_MODEL, keep_alive='24h')
+    return
+    # generate(model=IMAGE_MODEL, keep_alive='24h')
 
 def unload_models():
-    generate(model=IMAGE_MODEL, keep_alive='0')
+    return
+    # generate(model=IMAGE_MODEL, keep_alive='0')
