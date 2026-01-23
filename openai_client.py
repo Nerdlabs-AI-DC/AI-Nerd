@@ -110,6 +110,8 @@ async def analyze_image(image):
         ],
         model=IMAGE_MODEL,
     )
+    if DEBUG:
+        print(f"Image analysis response: {response.output_text}")
     return response.output_text
 
 async def reddit_search(query: str, limit: int = 5):
