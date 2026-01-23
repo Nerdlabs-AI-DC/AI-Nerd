@@ -64,7 +64,7 @@ from memory import (
     delete_memory,
     delete_user_memory
 )
-from openai_client import generate_response, get_subreddit_posts, analyze_image, reddit_search, load_models, unload_models
+from openai_client import generate_response, get_subreddit_posts, analyze_image, reddit_search
 from credentials import token as TOKEN
 from nerdscore import increase_nerdscore
 from metrics import messages_sent, update_metrics
@@ -445,11 +445,6 @@ async def on_ready():
     except Exception:
         if DEBUG:
             print("Failed to start image description prune task")
-    try:
-        load_models()
-    except Exception:
-        if DEBUG:
-            print("Failed to load models on startup")
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
     
     await bot.tree.sync()
@@ -1346,7 +1341,6 @@ async def prune_image_descriptions_task():
 
 def shutdown_handler(signum, frame):
     print("Shutting down...")
-    unload_models()
 
     loop = asyncio.get_event_loop()
     loop.create_task(bot.close())
