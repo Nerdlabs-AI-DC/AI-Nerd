@@ -5,7 +5,6 @@ import requests
 import html
 from openai import OpenAI
 from openrouter import OpenRouter
-from ollama import chat, generate
 from config import MODEL, DEBUG, EMBED_MODEL, IMAGE_MODEL
 from credentials import ai_key
 
@@ -144,11 +143,3 @@ async def reddit_search(query: str, limit: int = 5):
 
     except Exception:
         return []
-    
-def load_models():
-    return
-    # generate(model=IMAGE_MODEL, keep_alive='24h')
-
-def unload_models():
-    return
-    # generate(model=IMAGE_MODEL, keep_alive='0')
