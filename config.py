@@ -1,4 +1,4 @@
-# AI Nerd 2 version: 2.0.0 beta 5
+# AI Nerd 2 version: 2.0.0 beta 6
 
 from datetime import datetime, timezone
 from pathlib import Path
