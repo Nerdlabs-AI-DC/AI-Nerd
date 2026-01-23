@@ -212,10 +212,6 @@ def setup(bot):
         proc.cpu_percent(interval=None)
         latency_ms = round(interaction.client.latency * 1000, 2)
         bot_ram_usage = proc.memory_info().rss / (1024 * 1024)
-        ai_ram_usage = 0
-        for aimodel in ps().models:
-            if aimodel.model == IMAGE_MODEL:
-                ai_ram_usage = aimodel.size_vram / (1024 * 1024)
         try:
             metrics_data = storage.load_user_metrics() or {}
             user_count = len(metrics_data)
@@ -226,7 +222,7 @@ def setup(bot):
             "### 🟢 AI Nerd 2 is online\n"
             f"> Latency: {latency_ms} ms\n"
             f"> CPU Usage: {bot_cpu_usage}%\n"
-            f"> RAM Usage: {bot_ram_usage:.2f} MB Bot + {ai_ram_usage:.2f} MB AI\n"
+            f"> RAM Usage: {bot_ram_usage:.2f} MB\n"
             f"> Server count: {len(bot.guilds)}\n"
             f"> User count: {user_count}\n"
         )
@@ -848,10 +844,6 @@ Otherwise output only: False
         bot_cpu_usage = proc.cpu_percent(interval=5)
         latency_ms = round(interaction.client.latency * 1000, 2)
         bot_ram_usage = proc.memory_info().rss / (1024 * 1024)
-        ai_ram_usage = 0
-        for aimodel in ps().models:
-            if aimodel.model == IMAGE_MODEL:
-                ai_ram_usage = aimodel.size_vram / (1024 * 1024)
         try:
             uptime_seconds = time.time() - proc.create_time()
         except Exception:
@@ -957,7 +949,7 @@ Otherwise output only: False
             "### 📈 AI Nerd Statistics\n"
             f"> Latency: {latency_ms} ms\n"
             f"> CPU Usage: {bot_cpu_usage}%\n"
-            f"> RAM Usage: {bot_ram_usage:.2f} MB Bot + {ai_ram_usage:.2f} MB AI\n"
+            f"> RAM Usage: {bot_ram_usage:.2f} MB\n"
             f"> Uptime: {int(uptime_seconds)} seconds\n"
             f"> Server count: {len(bot.guilds)}\n"
             f"> User count (metrics file): {user_count_from_file}\n"
