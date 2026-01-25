@@ -1,6 +1,7 @@
 import sqlite3
 import json
 import threading
+import time
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 
@@ -387,3 +388,16 @@ def clear_abuse_tracking_records(user_id: int) -> None:
             conn.commit()
     except Exception:
         raise
+
+
+def prune_old_abuse_tracking(days: int = 30) -> int:
+    try:
+        cutoff_timestamp = time.time() - (days * 24 * 3600)
+        with _LOCK:
+            conn = _get_conn()
+            cur = conn.cursor()
+            cur.execute("DELETE FROM abuse_tracking WHERE timestamp < ?", (cutoff_timestamp,))
+            conn.commit()
+            return cur.rowcount
+    except Exception:
+        return 0

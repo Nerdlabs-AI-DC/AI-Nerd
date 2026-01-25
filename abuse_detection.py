@@ -186,3 +186,18 @@ def get_stats() -> dict:
         'total_tracked_users': total_tracked,
         'high_risk_users': high_risk
     }
+
+
+def cleanup_old_records(days: int = 30) -> int:
+    try:
+        deleted = storage.prune_old_abuse_tracking(days)
+        with _LOCK:
+            cutoff = time.time() - (days * 24 * 3600)
+            for user_id in list(_message_cache.keys()):
+                messages = _message_cache[user_id]
+                _message_cache[user_id] = [m for m in messages if m[0] > cutoff]
+                if not _message_cache[user_id]:
+                    del _message_cache[user_id]
+        return deleted
+    except Exception:
+        return 0
