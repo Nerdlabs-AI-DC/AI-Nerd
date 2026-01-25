@@ -6,3 +6,4 @@ cryptography
 numpy
 openrouter
 ollama
+matplotlib
