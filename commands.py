@@ -17,6 +17,7 @@ from nerdscore import get_nerdscore, increase_nerdscore, load_nerdscore
 import storage
 from memory import delete_user_memories
 import abuse_detection
+import metrics
 
 def load_recent_questions():
     return storage.load_recent_questions() or {}
@@ -836,11 +837,13 @@ Otherwise output only: False
         else:
             await interaction.response.send_message("You are not authorized to use this command.", ephemeral=True)
 
-    @admin_group.command(name="stats", description="Show detailed bot statistics")
+    @admin_group.command(name="stats", description="Show detailed bot statistics with graphs")
     async def stats(interaction: Interaction):
         if interaction.user.id != OWNER_ID:
             return await interaction.response.send_message("You are not authorized to use this command.", ephemeral=True)
         await interaction.response.defer(thinking=True, ephemeral=True)
+        
+        # System metrics
         proc = psutil.Process(os.getpid())
         bot_cpu_usage = proc.cpu_percent(interval=5)
         latency_ms = round(interaction.client.latency * 1000, 2)
@@ -850,12 +853,30 @@ Otherwise output only: False
         except Exception:
             uptime_seconds = 0
 
+        server_count = len(bot.guilds)
         try:
             metrics_data = storage.load_user_metrics() or {}
             user_count_from_file = len(metrics_data)
         except Exception:
             user_count_from_file = 0
 
+        # Record metrics for history tracking
+        try:
+            messages_sent = int(metrics.messages_sent._value.get())
+        except Exception:
+            messages_sent = "N/A"
+        
+        try:
+            metrics.record_daily_metrics(
+                servers=server_count,
+                users=user_count_from_file,
+                messages=int(messages_sent) if isinstance(messages_sent, int) else 0
+            )
+        except Exception as e:
+            if DEBUG:
+                print(f"Error recording metrics: {e}")
+
+        # Nerdscore data
         try:
             scores = load_nerdscore()
             nerdscore_users = len(scores)
@@ -875,12 +896,7 @@ Otherwise output only: False
             total_nerdscore = 0
             top10_str = "N/A"
 
-        import metrics
-        try:
-            messages_sent = int(metrics.messages_sent._value.get())
-        except Exception:
-            messages_sent = "N/A"
-
+        # Get storage data
         daily_messages = storage.load_daily_counts() or {}
         recent_freewill = storage.get_freewill_attempts() or {}
         recent_questions = storage.load_recent_questions() or {}
@@ -946,30 +962,160 @@ Otherwise output only: False
             memory_count = "N/A"
             user_mem_count = "N/A"
 
-        message = (
-            "### 📈 AI Nerd Statistics\n"
-            f"> Latency: {latency_ms} ms\n"
-            f"> CPU Usage: {bot_cpu_usage}%\n"
-            f"> RAM Usage: {bot_ram_usage:.2f} MB\n"
-            f"> Uptime: {int(uptime_seconds)} seconds\n"
-            f"> Server count: {len(bot.guilds)}\n"
-            f"> User count (metrics file): {user_count_from_file}\n"
-            f"> Messages sent: {messages_sent}\n"
-            f"> Average daily messages per active user (latest day): {daily_avg_active}\n"
-            f"> Average total messages per user: {avg_total_messages}\n"
-            f"> Nerdscore users: {nerdscore_users}\n"
-            f"> Total nerdscore points: {total_nerdscore}\n"
-            f"> Top nerdscore:\n{top10_str}\n"
-            f"> Memory summaries stored: {memory_count}\n"
-            f"> Users with stored memories: {user_mem_count}\n"
-            f"> Daily message records (days): {len(daily_messages)}\n"
-            f"> Daily quiz records: {len(daily_quiz)}\n"
-            f"> Recent freewill entries: {len(recent_freewill)}\n"
-            f"> Recent questions entries: {len(recent_questions)}\n"
-            f"> Server settings entries: {len(serversettings)}\n"
-            f"> User metrics entries: {len(user_metrics)}\n"
+        # Get growth stats
+        growth_stats = metrics.get_growth_stats()
+
+        # Create embeds
+        embeds = []
+        
+        # System Status Embed
+        system_embed = discord.Embed(
+            title="🖥️ System Status",
+            color=discord.Color.blue(),
+            description="Current bot performance and resource usage"
         )
-        await interaction.followup.send(message, ephemeral=True)
+        system_embed.add_field(name="Latency", value=f"{latency_ms} ms", inline=True)
+        system_embed.add_field(name="CPU Usage", value=f"{bot_cpu_usage}%", inline=True)
+        system_embed.add_field(name="RAM Usage", value=f"{bot_ram_usage:.2f} MB", inline=True)
+        system_embed.add_field(name="Uptime", value=f"{int(uptime_seconds)} seconds ({int(uptime_seconds // 3600)}h {int((uptime_seconds % 3600) // 60)}m)", inline=True)
+        embeds.append(system_embed)
+
+        # Server & User Growth Embed
+        growth_embed = discord.Embed(
+            title="📊 Growth Metrics",
+            color=discord.Color.green(),
+            description="Current and historical growth data"
+        )
+        growth_embed.add_field(name="Current Servers", value=f"**{server_count}**", inline=True)
+        growth_embed.add_field(name="Current Users", value=f"**{user_count_from_file}**", inline=True)
+        growth_embed.add_field(name="Messages Tracked", value=f"**{messages_sent}**", inline=True)
+        
+        if growth_stats.get("available"):
+            weekly_servers = growth_stats.get("weekly", {}).get("servers", 0)
+            weekly_servers_pct = growth_stats.get("weekly", {}).get("servers_pct", 0)
+            weekly_users = growth_stats.get("weekly", {}).get("users", 0)
+            weekly_users_pct = growth_stats.get("weekly", {}).get("users_pct", 0)
+            
+            server_emoji = "📈" if weekly_servers >= 0 else "📉"
+            user_emoji = "📈" if weekly_users >= 0 else "📉"
+            
+            growth_embed.add_field(
+                name="Weekly Growth",
+                value=f"{server_emoji} Servers: {weekly_servers:+d} ({weekly_servers_pct:+.1f}%)\n{user_emoji} Users: {weekly_users:+d} ({weekly_users_pct:+.1f}%)",
+                inline=False
+            )
+            
+            monthly_servers = growth_stats.get("monthly", {}).get("servers", 0)
+            monthly_servers_pct = growth_stats.get("monthly", {}).get("servers_pct", 0)
+            monthly_users = growth_stats.get("monthly", {}).get("users", 0)
+            monthly_users_pct = growth_stats.get("monthly", {}).get("users_pct", 0)
+            
+            server_emoji = "📈" if monthly_servers >= 0 else "📉"
+            user_emoji = "📈" if monthly_users >= 0 else "📉"
+            
+            growth_embed.add_field(
+                name="Monthly Growth",
+                value=f"{server_emoji} Servers: {monthly_servers:+d} ({monthly_servers_pct:+.1f}%)\n{user_emoji} Users: {monthly_users:+d} ({monthly_users_pct:+.1f}%)",
+                inline=False
+            )
+        
+        embeds.append(growth_embed)
+
+        # Engagement Embed
+        engagement_embed = discord.Embed(
+            title="💬 Engagement",
+            color=discord.Color.gold(),
+            description="Message and activity statistics"
+        )
+        engagement_embed.add_field(name="Avg Daily Messages (Latest)", value=daily_avg_active, inline=True)
+        engagement_embed.add_field(name="Avg Messages per User", value=avg_total_messages, inline=True)
+        engagement_embed.add_field(name="Daily Message Records", value=len(daily_messages), inline=True)
+        embeds.append(engagement_embed)
+
+        # Nerdscore Embed
+        nerdscore_embed = discord.Embed(
+            title="🤓 Nerdscore Rankings",
+            color=discord.Color.purple(),
+            description="Top performers in the nerdscore system"
+        )
+        nerdscore_embed.add_field(name="Participating Users", value=f"**{nerdscore_users}**", inline=True)
+        nerdscore_embed.add_field(name="Total Points", value=f"**{total_nerdscore}**", inline=True)
+        nerdscore_embed.add_field(name="Top 10", value=top10_str, inline=False)
+        embeds.append(nerdscore_embed)
+
+        # Data Storage Embed
+        storage_embed = discord.Embed(
+            title="💾 Data Storage",
+            color=discord.Color.greyple(),
+            description="Information about stored data"
+        )
+        storage_embed.add_field(name="Memory Summaries", value=memory_count, inline=True)
+        storage_embed.add_field(name="Users with Memories", value=user_mem_count, inline=True)
+        storage_embed.add_field(name="Quiz Records", value=len(daily_quiz), inline=True)
+        storage_embed.add_field(name="Server Settings", value=len(serversettings), inline=True)
+        storage_embed.add_field(name="User Metrics", value=len(user_metrics), inline=True)
+        storage_embed.add_field(name="Freewill Entries", value=len(recent_freewill), inline=True)
+        storage_embed.add_field(name="Recent Questions", value=len(recent_questions), inline=True)
+        embeds.append(storage_embed)
+
+        # Send embeds
+        await interaction.followup.send(embeds=embeds, ephemeral=True)
+
+        # Try to generate and send graphs
+        try:
+            combined_graph = metrics.generate_combined_graph(days=30)
+            if combined_graph:
+                await interaction.followup.send(file=discord.File(combined_graph, filename="growth_30d.png"), ephemeral=True)
+        except Exception as e:
+            if DEBUG:
+                print(f"Error generating combined graph: {e}")
+
+    @admin_group.command(name="stats-graphs", description="Show detailed statistical graphs")
+    @app_commands.describe(days="Number of days to show (7, 14, 30, 60, 90)", metric="Which metric to graph")
+    @app_commands.choices(days=[
+        app_commands.Choice(name="Last 7 Days", value="7"),
+        app_commands.Choice(name="Last 14 Days", value="14"),
+        app_commands.Choice(name="Last 30 Days", value="30"),
+        app_commands.Choice(name="Last 60 Days", value="60"),
+        app_commands.Choice(name="Last 90 Days", value="90"),
+    ], metric=[
+        app_commands.Choice(name="Servers", value="servers"),
+        app_commands.Choice(name="Users", value="users"),
+        app_commands.Choice(name="Messages", value="messages"),
+        app_commands.Choice(name="All Growth Metrics", value="combined"),
+    ])
+    async def stats_graphs(interaction: Interaction, days: str = "30", metric: str = "combined"):
+        if interaction.user.id != OWNER_ID:
+            return await interaction.response.send_message("You are not authorized to use this command.", ephemeral=True)
+        
+        await interaction.response.defer(thinking=True, ephemeral=True)
+        
+        days_int = int(days)
+        
+        try:
+            if metric == "combined":
+                graph_buffer = metrics.generate_combined_graph(days=days_int)
+                if graph_buffer:
+                    await interaction.followup.send(
+                        file=discord.File(graph_buffer, filename=f"growth_{days_int}d.png"),
+                        ephemeral=True
+                    )
+                else:
+                    await interaction.followup.send("Could not generate graph. Make sure matplotlib is installed.", ephemeral=True)
+            else:
+                graph_buffer = metrics.generate_graph(metric_type=metric, days=days_int)
+                if graph_buffer:
+                    metric_name = metric.replace('_', ' ').title()
+                    await interaction.followup.send(
+                        file=discord.File(graph_buffer, filename=f"{metric}_{days_int}d.png"),
+                        ephemeral=True
+                    )
+                else:
+                    await interaction.followup.send("Could not generate graph. Ensure there is historical data available.", ephemeral=True)
+        except Exception as e:
+            await interaction.followup.send(f"Error generating graph: {str(e)}", ephemeral=True)
+            if DEBUG:
+                print(f"Graph generation error: {e}")
 
     @admin_group.command(name="ban", description="Ban or unban a user")
     @app_commands.describe(action="Choose ban or unban", user="The user to affect")
