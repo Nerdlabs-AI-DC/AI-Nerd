@@ -16,6 +16,7 @@ from config import DEBUG, OWNER_ID, COMMANDS_MODEL, IMAGE_MODEL
 from nerdscore import get_nerdscore, increase_nerdscore, load_nerdscore
 import storage
 from memory import delete_user_memories
+import abuse_detection
 
 def load_recent_questions():
     return storage.load_recent_questions() or {}
@@ -1000,8 +1001,82 @@ Otherwise output only: False
             try:
                 banned_map.pop(uid, None)
                 storage.save_banned_map(banned_map)
+                abuse_detection.clear_user_tracking(uid)
             except Exception:
                 return await interaction.response.send_message("Failed to update banned users list.", ephemeral=True)
             await interaction.response.send_message(f"Unbanned {user}.", ephemeral=True)
+
+    @admin_group.command(name="abuse-dashboard", description="View and manage suspicious user activity")
+    async def abuse_dashboard(interaction: Interaction):
+        if interaction.user.id != OWNER_ID:
+            return await interaction.response.send_message("You are not authorized to use this command.", ephemeral=True)
+        
+        await interaction.response.defer(ephemeral=True)
+        
+        suspicious_users = abuse_detection.get_top_suspicious_users(limit=15)
+        stats = abuse_detection.get_stats()
+        
+        if not suspicious_users:
+            await interaction.followup.send("No suspicious activity detected.", ephemeral=True)
+            return
+        
+        embed = discord.Embed(
+            title="Abuse Detection Dashboard",
+            description=f"Total tracked users: {stats['total_tracked_users']} | High risk: {stats['high_risk_users']}",
+            color=discord.Color.orange()
+        )
+        
+        for i, user_data in enumerate(suspicious_users[:10], 1):
+            user_id = user_data['user_id']
+            score = user_data['score']
+            messages_24h = user_data['last_24h_messages']
+            empty = user_data['empty_messages']
+            duplicates = user_data['duplicate_messages']
+            rapid = user_data['rapid_fire_count']
+            mph = user_data['messages_per_hour']
+            
+            risk = "🔴 CRITICAL" if score > 100 else "🟠 HIGH" if score > 50 else "🟡 MEDIUM" if score > 25 else "🟢 LOW"
+            
+            field_value = (
+                f"**Score:** {score} {risk}\n"
+                f"**24h Messages:** {messages_24h}\n"
+                f"**Empty:** {empty} | **Duplicates:** {duplicates} | **Spam bursts:** {rapid}\n"
+                f"**Messages/hour:** {mph}"
+            )
+            embed.add_field(name=f"#{i} - User ID: {user_id}", value=field_value, inline=False)
+        
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+    @admin_group.command(name="user-abuse-detail", description="View detailed abuse tracking for a user")
+    @app_commands.describe(user="The user to check")
+    async def user_abuse_detail(interaction: Interaction, user: discord.User):
+        if interaction.user.id != OWNER_ID:
+            return await interaction.response.send_message("You are not authorized to use this command.", ephemeral=True)
+        
+        await interaction.response.defer(ephemeral=True)
+        
+        abuse_score = abuse_detection.calculate_abuse_score(user.id)
+        message_history = abuse_detection.get_user_message_history(user.id, limit=30)
+        
+        if not message_history:
+            await interaction.followup.send(f"No tracking data found for user {user.id}.", ephemeral=True)
+            return
+        
+        embed = discord.Embed(
+            title=f"Abuse Details For User {user.id}",
+            color=discord.Color.red() if abuse_score['score'] > 100 else discord.Color.orange() if abuse_score['score'] > 50 else discord.Color.yellow() if abuse_score['score'] > 25 else discord.Color.green()
+        )
+        
+        embed.add_field(name="Abuse Score", value=f"`{abuse_score['score']}`", inline=True)
+        embed.add_field(name="Messages (24h)", value=f"`{abuse_score['last_24h_messages']}`", inline=True)
+        embed.add_field(name="Messages/hour", value=f"`{abuse_score['messages_per_hour']}`", inline=True)
+        embed.add_field(name="Empty Messages", value=f"`{abuse_score['empty_messages']}`", inline=True)
+        embed.add_field(name="Duplicates", value=f"`{abuse_score['duplicate_messages']}`", inline=True)
+        embed.add_field(name="Spam Bursts", value=f"`{abuse_score['rapid_fire_count']}`", inline=True)
+        
+        recent_lengths = [str(h['content_len']) for h in message_history[:10]]
+        embed.add_field(name="Recent Message Lengths", value=f"`{' '.join(recent_lengths)}`", inline=False)
+        
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     bot.tree.add_command(admin_group)
