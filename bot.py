@@ -435,6 +435,13 @@ async def on_ready():
         if DEBUG:
             print("Failed to start BackupManager")
     try:
+        deleted = abuse_detection.cleanup_old_records(days=30)
+        if DEBUG and deleted > 0:
+            print(f"Cleaned up {deleted} old abuse tracking records")
+    except Exception:
+        if DEBUG:
+            print("Failed to cleanup abuse tracking records")
+    try:
         if not hasattr(bot, 'status_task'):
             bot.status_task = bot.loop.create_task(update_status())
     except Exception:
@@ -446,6 +453,12 @@ async def on_ready():
     except Exception:
         if DEBUG:
             print("Failed to start image description prune task")
+    try:
+        if not hasattr(bot, 'cleanup_abuse_task'):
+            bot.cleanup_abuse_task = bot.loop.create_task(cleanup_abuse_tracking_task())
+    except Exception:
+        if DEBUG:
+            print("Failed to start abuse tracking cleanup task")
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
     
     await bot.tree.sync()
@@ -1345,6 +1358,20 @@ async def prune_image_descriptions_task():
             if DEBUG:
                 print("Failed to prune image descriptions")
         await asyncio.sleep(3600)
+
+
+async def cleanup_abuse_tracking_task():
+    await bot.wait_until_ready()
+    while not bot.is_closed():
+        try:
+            deleted = abuse_detection.cleanup_old_records(days=30)
+            if DEBUG and deleted > 0:
+                print(f"Cleaned up {deleted} old abuse tracking records")
+        except Exception:
+            if DEBUG:
+                print("Failed to cleanup abuse tracking records")
+        await asyncio.sleep(86400)
+
 
 def shutdown_handler(signum, frame):
     print("Shutting down...")
