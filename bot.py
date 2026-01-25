@@ -71,6 +71,7 @@ from metrics import messages_sent, update_metrics
 import storage
 from knowledge import sync_knowledge, find_relevant_knowledge
 from backup import BackupManager
+import abuse_detection
 
 # Some variable and function definitions
 
@@ -459,6 +460,12 @@ async def send_message(message, system_msg=None, force_response=False, functions
     # Condition checking & free will
     if message.author.id == bot.user.id and force_response == False:
         return
+    
+    try:
+        abuse_detection.track_message(message.author.id, message.content or '')
+    except Exception:
+        pass
+    
     try:
         banned_map = storage.load_banned_map()
         if message.author.id in banned_map:

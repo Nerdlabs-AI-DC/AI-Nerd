@@ -33,6 +33,22 @@ def _init_db(conn: sqlite3.Connection):
         value BLOB
     )
     """)
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS abuse_tracking (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        content_hash TEXT NOT NULL,
+        content_len INTEGER NOT NULL,
+        timestamp REAL NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+    cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_abuse_user_id ON abuse_tracking(user_id)
+    """)
+    cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_abuse_timestamp ON abuse_tracking(timestamp)
+    """)
     conn.commit()
 
 
@@ -304,3 +320,70 @@ def prune_image_descriptions(age_hours: int = 24) -> list:
         return removed
     except Exception:
         return []
+
+
+def add_abuse_tracking_record(user_id: int, content_hash: str, content_len: int, timestamp: float) -> None:
+    try:
+        with _LOCK:
+            conn = _get_conn()
+            conn.execute(
+                "INSERT INTO abuse_tracking (user_id, content_hash, content_len, timestamp) VALUES (?, ?, ?, ?)",
+                (user_id, content_hash, content_len, timestamp)
+            )
+            conn.commit()
+    except Exception:
+        raise
+
+
+def get_abuse_tracking_records(user_id: int, limit: int = 200) -> list:
+    try:
+        with _LOCK:
+            cur = _get_conn().cursor()
+            cur.execute(
+                "SELECT user_id, content_hash, content_len, timestamp FROM abuse_tracking WHERE user_id = ? ORDER BY timestamp DESC LIMIT ?",
+                (user_id, limit)
+            )
+            rows = cur.fetchall()
+            return [
+                {
+                    'user_id': row[0],
+                    'content_hash': row[1],
+                    'content_len': row[2],
+                    'timestamp': row[3]
+                }
+                for row in rows
+            ]
+    except Exception:
+        return []
+
+
+def get_all_tracked_users() -> list:
+    try:
+        with _LOCK:
+            cur = _get_conn().cursor()
+            cur.execute("SELECT DISTINCT user_id FROM abuse_tracking")
+            rows = cur.fetchall()
+            return [row[0] for row in rows]
+    except Exception:
+        return []
+
+
+def get_tracked_users_count() -> int:
+    try:
+        with _LOCK:
+            cur = _get_conn().cursor()
+            cur.execute("SELECT COUNT(DISTINCT user_id) FROM abuse_tracking")
+            row = cur.fetchone()
+            return row[0] if row else 0
+    except Exception:
+        return 0
+
+
+def clear_abuse_tracking_records(user_id: int) -> None:
+    try:
+        with _LOCK:
+            conn = _get_conn()
+            conn.execute("DELETE FROM abuse_tracking WHERE user_id = ?", (user_id,))
+            conn.commit()
+    except Exception:
+        raise
