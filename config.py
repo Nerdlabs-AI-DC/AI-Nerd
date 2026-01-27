@@ -7,7 +7,7 @@ from pathlib import Path
 RESPOND_TO_PINGS = True # If enabled, the bot will respond when mentioned (default: True)
 HISTORY_SIZE = 10 # Number of previous messages to include in context (default: 10)
 MODEL = "deepseek/deepseek-v3.2" # Main model to use (default: "deepseek/deepseek-v3.2")
-CHEAP_MODEL = "tngtech/tng-r1t-chimera:free" # Cheaper model to use for natural replies and after daily limit is reached (default: "nex-agi/deepseek-v3.1-nex-n1:free")
+CHEAP_MODEL = "tngtech/tng-r1t-chimera:free" # Cheaper model to use for natural replies and after daily limit is reached (default: "tngtech/tng-r1t-chimera:free")
 EMBED_MODEL = "openai/text-embedding-3-small" # Model to use for memory embeddings (default: "openai/text-embedding-3-small")
 COMMANDS_MODEL = "openai/gpt-5-mini" # Model to use without personality (default: "openai/gpt-5-mini")
 IMAGE_MODEL = "openai/gpt-5-mini" # Model to use for image analysis (default: "deepseek-ocr:3b")
