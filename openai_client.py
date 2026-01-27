@@ -45,7 +45,7 @@ async def generate_response(messages, tools=None, tool_choice=None, model=MODEL,
             }
         }
     else:
-        if model.startswith("openai/"):
+        if model.startswith("openai/") or model.startswith("tngtech/"):
             kwargs["extra_body"] = {
                 "reasoning": {
                     "enabled": True,
