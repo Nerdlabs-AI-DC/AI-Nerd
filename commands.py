@@ -122,8 +122,8 @@ def setup(bot):
         )
 
     @config_group.command(name="chatrevive-set", description="Make AI Nerd 2 send a chat revive message when the channel is inactive")
-    @app_commands.describe(timeout="Time since last message before revive message is sent", role="Role to mention for chat revive")
-    async def chatrevive(interaction: Interaction, timeout: int, role: discord.Role):
+    @app_commands.describe(timeout="Time since last message in minutes before revive message is sent", role="Role to mention for chat revive")
+    async def chatrevive(interaction: Interaction, timeout: app_commands.Range[int, 30, None], role: discord.Role):
         if not interaction.guild:
             await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
             return
