@@ -32,9 +32,8 @@ from config import (
     DEBUG,
     get_system_prompt,
     SYSTEM_SHORT,
-    NATURAL_REPLIES,
+    get_natural_reply_prompt,
     NATURAL_REPLIES_INTERVAL,
-    NATURAL_REPLIES_TIMEOUT,
     DAILY_MESSAGE_LIMIT,
     CHEAP_MODEL,
     MODEL,
@@ -168,6 +167,69 @@ def check_send_perm(channel: discord.abc.Messageable) -> bool:
         return bool(can_view and can_send)
     except Exception:
         return False
+
+# Natural replies decision function
+async def should_send_natural_reply(channel, message, settings, is_dm=False):
+    if is_dm:
+        return False
+    
+    guild_settings = settings.get(str(channel.guild.id), {})
+    rate = guild_settings.get('freewill_rate', "mid")
+    
+    if rate == 0:
+        return False
+    
+    messages = [msg async for msg in channel.history(limit=20)]
+    
+    time_since_last_bot = None
+    time_since_last_message = None
+    conversation_activity = 0
+    mentions_bot = False
+    bot_was_in_convo = False
+    
+    for i, msg in enumerate(messages):
+        if i == 0:
+            time_since_last_message = (datetime.now(timezone.utc) - msg.created_at).total_seconds()
+        
+        if msg.author.id == bot.user.id:
+            if time_since_last_bot is None:
+                time_since_last_bot = (datetime.now(timezone.utc) - msg.created_at).total_seconds()
+            if i < 10:
+                bot_was_in_convo = True
+        
+        if (datetime.now(timezone.utc) - msg.created_at).total_seconds() < 600:
+            conversation_activity += 1
+        
+        if bot.user in msg.mentions or bot.user.name.lower() in msg.content.lower():
+            mentions_bot = True
+    
+    if rate == "low":
+        base_chance = 0.15
+    elif rate == "mid":
+        base_chance = 0.35
+    else:
+        base_chance = 0.60
+    
+    chance = base_chance
+    
+    if bot_was_in_convo and time_since_last_bot and time_since_last_bot < 300:
+        chance *= 2.5
+
+    if mentions_bot:
+        chance *= 1.8
+
+    if conversation_activity > 5:
+        chance *= 1.3
+
+    if time_since_last_message and time_since_last_message > 1800:
+        chance *= 1.5
+
+    if time_since_last_bot and time_since_last_bot < 60:
+        chance *= 0.1
+    
+    chance = min(chance, 0.95)
+    
+    return random.random() < chance
 
 chatrevive_task_started = False
 
@@ -459,6 +521,12 @@ async def on_ready():
     except Exception:
         if DEBUG:
             print("Failed to start abuse tracking cleanup task")
+    try:
+        if not hasattr(bot, 'freewill_task'):
+            bot.freewill_task = bot.loop.create_task(freewill_task())
+    except Exception:
+        if DEBUG:
+            print("Failed to start freewill task")
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
     
     await bot.tree.sync()
@@ -466,11 +534,11 @@ async def on_ready():
 
 
 # Main message handler
-async def send_message(message, system_msg=None, force_response=False, functions=True):
+async def send_message(message, system_msg=None, force_response=False, functions=True, is_natural_reply=False, natural_reply_context=None):
     global status
     start_time = time.time()
 
-    # Condition checking & free will
+    # Condition checking
     if message.author.id == bot.user.id and force_response == False:
         return
     
@@ -514,54 +582,9 @@ async def send_message(message, system_msg=None, force_response=False, functions
     is_allowed = message.channel.id in allowed
     is_pinged = RESPOND_TO_PINGS and bot.user in message.mentions
     if not (is_dm or is_allowed or is_pinged or force_response):
-        settings = load_settings()
-        sid = str(message.guild.id) if message.guild else None
-        guild_settings = settings.get(sid, {})
-        rate = guild_settings.get('freewill_rate', "mid")
-        if rate == 0:
-            return
-        messages = [msg async for msg in message.channel.history(limit=2)]
-        if len(messages) < 2:
-            return
-        msg = messages[1]
-        now = datetime.now(timezone.utc)
-        delta = now - msg.created_at
-        if delta.total_seconds() < 60 and msg.author.id == bot.user.id:
-            if rate == "low":
-                chance = 0.75
-            if rate == "mid":
-                chance = 0.9
-            if rate == "high":
-                chance = 1
-        # elif delta.total_seconds() > 36000:
-        #     if rate == "low":
-        #         chance = 0.25
-        #     if rate == "mid":
-        #         chance = 0.5
-        #     if rate == "high":
-        #         chance = 0.75
-        elif delta.total_seconds() > 300:
-            if rate == "low":
-                chance = 0.05
-            if rate == "mid":
-                chance = 0.1
-            if rate == "high":
-                chance = 0.2
-        else:
-            if rate == "low":
-                chance = 0.01
-            if rate == "mid":
-                chance = 0.05
-            if rate == "high":
-                chance = 0.1
-        if random.random() <= chance:
-            freewill = True
-            if not system_msg:
-                system_msg = NATURAL_REPLIES
-        else:
-            return
+        return
     else:
-        freewill = False
+        freewill = is_natural_reply
 
     # Rate limiting
     user_id = message.author.id
@@ -1087,7 +1110,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
             save_context(user_id, message.channel.id)
         except Exception:
             pass
-        if system_msg == NATURAL_REPLIES_TIMEOUT:
+        if natural_reply_context:
             try:
                 freewill_attempts = storage.get_freewill_attempts() or {}
             except Exception:
@@ -1122,7 +1145,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
         save_context(user_id, message.channel.id)
     except Exception:
         pass
-    if system_msg == NATURAL_REPLIES_TIMEOUT:
+    if natural_reply_context:
         try:
             freewill_attempts = storage.get_freewill_attempts() or {}
         except Exception:
@@ -1219,100 +1242,104 @@ async def freewill_task():
         if DEBUG:
             print("Running freewill task")
         try:
-            try:
-                context = storage.get_context() or {}
-            except Exception:
-                context = {}
-
-            try:
-                freewill_attempts = storage.get_freewill_attempts() or {}
-            except Exception:
-                freewill_attempts = {}
-
+            context = storage.get_context() or {}
+            freewill_attempts = storage.get_freewill_attempts() or {}
             settings = load_settings()
             processed_channels = set()
+            
+            all_channels = []
+            
             for user_id, info in context.items():
                 channel_id = info.get('channel_id')
-                if not channel_id or channel_id in processed_channels:
+                if channel_id:
+                    all_channels.append((channel_id, "context"))
+            
+            for guild in bot.guilds:
+                sid = str(guild.id)
+                guild_settings = settings.get(sid, {})
+                allowed = guild_settings.get("allowed_channels", [])
+                for ch_id in allowed:
+                    if ch_id not in processed_channels:
+                        all_channels.append((ch_id, "allowed"))
+            
+            for channel_id, source in all_channels:
+                if channel_id in processed_channels:
                     continue
+                processed_channels.add(channel_id)
+                
                 channel = None
                 guild = None
                 for g in bot.guilds:
-                    try:
-                        ch = g.get_channel(channel_id)
-                        if ch:
-                            channel = ch
-                            guild = g
-                            break
-                    except Exception:
-                        continue
+                    ch = g.get_channel(channel_id)
+                    if ch:
+                        channel = ch
+                        guild = g
+                        break
+                
                 if not channel:
                     try:
                         channel = await bot.fetch_channel(channel_id)
                         guild = getattr(channel, 'guild', None)
                     except Exception:
                         continue
-                if not channel:
+                
+                if not channel or isinstance(channel, discord.DMChannel):
                     continue
-                processed_channels.add(channel_id)
-                is_dm = isinstance(channel, discord.DMChannel)
-                if is_dm:
-                    rate = "mid"
-                else:
-                    if not guild:
-                        continue
-                    sid = str(guild.id)
-                    guild_settings = settings.get(sid, {})
-                    rate = guild_settings.get('freewill_rate', "mid")
-                    if rate == "low":
-                        chance = 0.25
-                    if rate == "mid":
-                        chance = 0.5
-                    if rate == "high":
-                        chance = 0.75
-                    if random.random() >= chance:
-                        continue
+                
                 messages = []
                 try:
-                    async for msg in channel.history(limit=5):
+                    async for msg in channel.history(limit=20):
                         messages.append(msg)
                 except Exception:
                     continue
+                
                 if not messages:
                     continue
+                
                 last_message = messages[0]
-                last_bot_message_time = None
-                for msg in messages:
-                    if msg.author.id == bot.user.id:
-                        last_bot_message_time = msg.created_at
-                        break
-                now = datetime.now(timezone.utc)
+
                 last_attempted_id = freewill_attempts.get(str(channel_id))
                 if last_attempted_id == last_message.id:
-                    if DEBUG:
-                        if is_dm:
-                            print(f"Skipping free will message to DM with user {user_id}")
-                        else:
-                            print(f"Skipping free will message to {guild.name}/{channel.name}")
                     continue
-                chance = 1
-                if random.random() <= chance:
+
+                time_since_last = (datetime.now(timezone.utc) - last_message.created_at).total_seconds()
+                bot_was_recent = any(m.author.id == bot.user.id for m in messages[:10])
+                bot_mentioned = any(
+                    bot.user in m.mentions or bot.user.name.lower() in m.content.lower() 
+                    for m in messages[:5]
+                )
+
+                if time_since_last > 1800:
+                    context_type = "long_silence"
+                elif bot_was_recent:
+                    context_type = "active_convo"
+                elif bot_mentioned:
+                    context_type = "mentioned"
+                else:
+                    context_type = "random"
+                
+                if await should_send_natural_reply(channel, last_message, settings):
                     if DEBUG:
-                        if is_dm:
-                            print(f"Attempting free will message to DM with user {user_id}")
-                        else:
-                            print(f"Attempting free will message to {guild.name}/{channel.name}")
+                        print(f"Attempting natural reply in {guild.name}/{channel.name} (context: {context_type})")
+                    
                     try:
                         await send_message(
                             last_message,
-                            system_msg=NATURAL_REPLIES_TIMEOUT
+                            system_msg=get_natural_reply_prompt(context_type),
+                            force_response=True,
+                            is_natural_reply=True,
+                            natural_reply_context=context_type
                         )
+                        freewill_attempts[str(channel_id)] = last_message.id
+                        storage.save_freewill_attempts(freewill_attempts)
                     except Exception as e:
                         if DEBUG:
-                            print(f"Free will message error: {e}")
+                            print(f"Natural reply error: {e}")
+                
         except Exception as e:
             if DEBUG:
                 print(f"Free will task error: {e}")
+        
         await asyncio.sleep(NATURAL_REPLIES_INTERVAL)
 
 async def update_status():
