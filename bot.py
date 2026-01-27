@@ -242,7 +242,7 @@ def replace_custom_emojis(text: str):
 
     return re.sub(r":([a-zA-Z0-9_]+):", repl, text)
 
-async def process_response(text, guild, count):
+async def process_response(text, guild, count, bypass_mention_filter=False):
     if isinstance(text, list):
         try:
             parts = []
@@ -266,7 +266,7 @@ async def process_response(text, guild, count):
         except Exception:
             pass
 
-    if guild:
+    if guild and not bypass_mention_filter:
         def repl(match):
             role_id = int(match.group(1))
             role = guild.get_role(role_id)
@@ -527,6 +527,12 @@ async def on_ready():
     except Exception:
         if DEBUG:
             print("Failed to start freewill task")
+    try:
+        if not hasattr(bot, 'chatrevive_task'):
+            bot.chatrevive_task = bot.loop.create_task(chatrevive_task())
+    except Exception:
+        if DEBUG:
+            print("Failed to start chatrevive task")
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
     
     await bot.tree.sync()
@@ -534,7 +540,7 @@ async def on_ready():
 
 
 # Main message handler
-async def send_message(message, system_msg=None, force_response=False, functions=True, is_natural_reply=False, natural_reply_context=None):
+async def send_message(message, system_msg=None, force_response=False, functions=True, is_natural_reply=False, natural_reply_context=None, chatrevive=False):
     global status
     start_time = time.time()
 
@@ -740,7 +746,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
     system = (
         f"Server: {guild_name}\n"
         f"Channel: {channel_name}\n\n"
-        f"{get_system_prompt(status)}\n"
+        f"{get_system_prompt(status, functions)}\n"
         f"Relevant Knowledge:\n{knowledge_list}\n"
         f"Relevant global memories:\n{summary_list}\n"
         f"Relevant user memories for {message.author.name}:\n{user_summaries}"
@@ -1128,7 +1134,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 print("Failed to flush memory cache after cancelled response")
         return
 
-    content = await process_response(msg_obj.content, message.guild, count)
+    content = await process_response(msg_obj.content, message.guild, count, chatrevive)
     if force_mention_original:
         await message.reply(content, mention_author=False)
     elif reply_msg:
@@ -1229,7 +1235,8 @@ async def chatrevive_task():
                                 last_message,
                                 system_msg=f"The chat has been quiet for a while. Please send a message to help revive the conversation. Make sure to mention the revive role using {role_mention} at least once. Also, include an interesting question to get people talking again.",
                                 force_response=True,
-                                functions=False
+                                functions=False,
+                                chatrevive=True
                             )
                 except Exception as e:
                     if DEBUG:
