@@ -842,14 +842,17 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 return
     else:
         async with message.channel.typing():
-            count = increment_user_daily_count(user_id)
+            model_to_use = MODEL
             user = None
-            if count > DAILY_MESSAGE_LIMIT:
-                model_to_use = CHEAP_MODEL
-                user = f"limited_{message.author.name}:{message.author.id}"
+            if chatrevive:
+                user = f"chatrevive_{message.guild.name}:{message.guild.id}"
             else:
-                model_to_use = MODEL
-                user = f"standard_{message.author.name}:{message.author.id}"
+                count = increment_user_daily_count(user_id)
+                if count > DAILY_MESSAGE_LIMIT:
+                    model_to_use = CHEAP_MODEL
+                    user = f"limited_{message.author.name}:{message.author.id}"
+                else:
+                    user = f"standard_{message.author.name}:{message.author.id}"
             try:
                 completion = await generate_response(
                     messages,
