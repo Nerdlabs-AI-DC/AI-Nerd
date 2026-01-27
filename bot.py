@@ -588,7 +588,17 @@ async def send_message(message, system_msg=None, force_response=False, functions
     is_allowed = message.channel.id in allowed
     is_pinged = RESPOND_TO_PINGS and bot.user in message.mentions
     if not (is_dm or is_allowed or is_pinged or force_response):
-        return
+        messages = [msg async for msg in message.channel.history(limit=2)]
+        if len(messages) < 2:
+            return
+        msg = messages[1]
+        now = datetime.now(timezone.utc)
+        delta = now - msg.created_at
+        if delta.total_seconds() < 60 and msg.author.id == bot.user.id:
+            freewill = True
+            system_msg = get_natural_reply_prompt("active_convo")
+        else:
+            return
     else:
         freewill = is_natural_reply
 
