@@ -25,7 +25,6 @@ import datetime
 import re
 import os
 import signal
-import sys
 from config import (
     RESPOND_TO_PINGS,
     HISTORY_SIZE,

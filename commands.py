@@ -7,10 +7,8 @@ import asyncio
 import random
 import time
 import datetime
-import requests
 import sys
 import numpy as np
-from ollama import ps
 from openai_client import generate_response, embed_text
 from config import DEBUG, OWNER_ID, COMMANDS_MODEL, IMAGE_MODEL
 from nerdscore import get_nerdscore, increase_nerdscore, load_nerdscore
