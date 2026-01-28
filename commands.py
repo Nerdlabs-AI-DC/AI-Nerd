@@ -1174,6 +1174,8 @@ Otherwise output only: False
         
         for i, user_data in enumerate(suspicious_users[:10], 1):
             user_id = user_data['user_id']
+            user = await bot.fetch_user(user_id)
+            name = user.name
             score = user_data['score']
             messages_24h = user_data['last_24h_messages']
             empty = user_data['empty_messages']
@@ -1189,7 +1191,7 @@ Otherwise output only: False
                 f"**Empty:** {empty} | **Duplicates:** {duplicates} | **Spam bursts:** {rapid}\n"
                 f"**Messages/hour:** {mph}"
             )
-            embed.add_field(name=f"#{i} - User ID: {user_id}", value=field_value, inline=False)
+            embed.add_field(name=f"#{i} - {name} ({user_id})", value=field_value, inline=False)
         
         await interaction.followup.send(embed=embed, ephemeral=True)
 
@@ -1209,7 +1211,7 @@ Otherwise output only: False
             return
         
         embed = discord.Embed(
-            title=f"Abuse Details For User {user.id}",
+            title=f"Abuse Details For User {user.name} ({user.id})",
             color=discord.Color.red() if abuse_score['score'] > 100 else discord.Color.orange() if abuse_score['score'] > 50 else discord.Color.yellow() if abuse_score['score'] > 25 else discord.Color.green()
         )
         
