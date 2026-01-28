@@ -555,13 +555,13 @@ async def send_message(message, system_msg=None, force_response=False, functions
     
     try:
         banned_map = storage.load_banned_map()
-        if message.author.id in banned_map:
+        if message.author.id in banned_map and not force_response:
             meta = banned_map.get(message.author.id) or {}
             notified = bool(meta.get('notified'))
             if not notified:
                 try:
                     await message.reply(
-                        "You have been banned from using AI Nerd 2. Further messages will be ignored.",
+                        "You have been banned from using AI Nerd 2. Further messages will be ignored.\n-# [Terms of Service](<https://docs.google.com/document/d/1CBJ7tNOX0lKOsg4MZlJlc3TMkYQd_6mWXQ8ZWMtxix8/edit?usp=sharing>)",
                         mention_author=False
                     )
                 except Exception:
