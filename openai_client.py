@@ -1,6 +1,5 @@
 import asyncio
 import functools
-import base64
 import requests
 import html
 from openai import OpenAI

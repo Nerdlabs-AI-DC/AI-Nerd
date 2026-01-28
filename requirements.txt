@@ -5,5 +5,4 @@ openai
 cryptography
 numpy
 openrouter
-ollama
 matplotlib

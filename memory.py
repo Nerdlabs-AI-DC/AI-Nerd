@@ -2,7 +2,6 @@ import os
 import json
 import time
 import base64
-import math
 import storage
 import numpy as np
 from config import MEMORY_LIMIT
