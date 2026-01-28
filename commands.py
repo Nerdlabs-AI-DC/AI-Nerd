@@ -1138,6 +1138,7 @@ Otherwise output only: False
             banned_map[uid] = {'notified': False}
             try:
                 storage.save_banned_map(banned_map)
+                abuse_detection.clear_user_tracking(uid)
             except Exception:
                 return await interaction.response.send_message("Failed to save banned users list.", ephemeral=True)
             await interaction.response.send_message(f"Banned {user} from using the bot.", ephemeral=True)
@@ -1147,7 +1148,6 @@ Otherwise output only: False
             try:
                 banned_map.pop(uid, None)
                 storage.save_banned_map(banned_map)
-                abuse_detection.clear_user_tracking(uid)
             except Exception:
                 return await interaction.response.send_message("Failed to update banned users list.", ephemeral=True)
             await interaction.response.send_message(f"Unbanned {user}.", ephemeral=True)
