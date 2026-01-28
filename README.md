@@ -40,7 +40,7 @@ If you’d like to run or modify the bot yourself, follow these steps.
 
 * Python 3.10 or higher (Python 3.13 recommended)
 * A Discord bot token
-* An OpenAI API key
+* An OpenRouter API key
 
 ### Environment Variables
 
@@ -49,18 +49,18 @@ Before running the bot, set the following environment variables:
 | Variable                 | Description                                          |
 | ------------------------ | ---------------------------------------------------- |
 | `AI_NERD_DISCORD_TOKEN`  | Your Discord bot token                               |
-| `AI_NERD_OPENAI_API_KEY` | Your OpenAI API key                                  |
+| `AI_NERD_AI_KEY`         | Your OpenRouter API key                              |
 | `AI_NERD_MEMORY_KEY_B64` | A base64-encoded key used for encrypting memory data |
 
-*(On Windows, use `setx VARIABLE_NAME value`; on macOS/Linux, use `export VARIABLE_NAME=value`.)*
+*(To set environment variables, use `export VARIABLE_NAME=value`.)*
 
 ### Installation
 
 ```bash
 git clone https://github.com/Nerdlabs-AI-DC/AI-Nerd.git
 cd AI-Nerd
-python -m venv venv
-source venv/bin/activate  # or on Windows: venv\Scripts\activate
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
@@ -74,8 +74,10 @@ Make sure your bot has the **Message Content Intent** and **Server Members Inten
 To start the bot, run:
 
 ```bash
-python bot.py
+python3 bot.py
 ```
+
+AI Nerd 2 should work, but has not been tested, on operating systems other than Linux. Keep in mind that the setup process may be different depending on your OS.
 
 ---
 
@@ -84,13 +86,14 @@ python bot.py
 - [`bot.py`](bot.py): Main bot logic and event handling.
 - [`commands.py`](commands.py): Slash command definitions.
 - [`memory.py`](memory.py): Memory management functions.
-- [`openai_client.py`](openai_client.py): Handles OpenAI API calls.
+- [`openai_client.py`](openai_client.py): Handles third-party API calls.
 - [`config.py`](config.py): Configuration and system prompts.
 - [`nerdscore.py`](nerdscore.py): Nerdscore point system management.
 - [`metrics.py`](metrics.py): Handles message count tracking.
 - [`storage.py`](storage.py): Handles data storage.
 - [`knowledge.py`](knowledge.py): Knowledge management functions.
 - [`backup.py`](backup.py): Database backup management.
+- [`abuse_detection.py`](abuse_detection.py): Handles bot abuse tracking.
 
 ---
 
