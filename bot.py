@@ -241,6 +241,19 @@ def replace_custom_emojis(text: str):
 
     return re.sub(r":([a-zA-Z0-9_]+):", repl, text)
 
+
+def collapse_custom_emojis_to_names(text: str) -> str:
+    if not text:
+        return text or ''
+
+    def repl(match):
+        name = match.group(1)
+        if name in EMOJI_MAP:
+            return f":{name}:"
+        return match.group(0)
+
+    return re.sub(r"<a?:([a-zA-Z0-9_]+):\d+>", repl, text)
+
 async def process_response(text, guild, count, bypass_mention_filter=False):
     if isinstance(text, list):
         try:
@@ -645,6 +658,10 @@ async def send_message(message, system_msg=None, force_response=False, functions
             content_item = msg.content or ''
             try:
                 content_item = await enrich_mentions(content_item, msg.guild)
+            except Exception:
+                pass
+            try:
+                content_item = collapse_custom_emojis_to_names(content_item)
             except Exception:
                 pass
             if last_role == 'assistant' and last_author_id == msg.author.id and history:
