@@ -1158,6 +1158,7 @@ Otherwise output only: False
         await interaction.response.defer(ephemeral=True)
         
         suspicious_users = abuse_detection.get_top_suspicious_users(limit=15)
+        suspicious_users = [u for u in suspicious_users if u['user_id'] != bot.user.id]
         stats = abuse_detection.get_stats()
         
         if not suspicious_users:
@@ -1172,8 +1173,11 @@ Otherwise output only: False
         
         for i, user_data in enumerate(suspicious_users[:10], 1):
             user_id = user_data['user_id']
-            user = await bot.fetch_user(user_id)
-            name = user.name
+            try:
+                user = await bot.fetch_user(user_id)
+            except Exception:
+                user = None
+            name = user.name if user else "Unknown User"
             score = user_data['score']
             messages_24h = user_data['last_24h_messages']
             empty = user_data['empty_messages']
@@ -1198,6 +1202,9 @@ Otherwise output only: False
     async def user_abuse_detail(interaction: Interaction, user: discord.User):
         if interaction.user.id != OWNER_ID:
             return await interaction.response.send_message("You are not authorized to use this command.", ephemeral=True)
+        
+        if user.id == bot.user.id:
+            return await interaction.response.send_message("Cannot track the bot itself.", ephemeral=True)
         
         await interaction.response.defer(ephemeral=True)
         
