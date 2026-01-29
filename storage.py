@@ -2,8 +2,11 @@ import sqlite3
 import json
 import threading
 import time
+import os
+import base64
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 _DB_PATH = Path("data") / "storage.db"
 _LOCK = threading.Lock()
@@ -261,6 +264,50 @@ def is_banned_user_notified(user_id: int) -> bool:
         return False
 
 
+def _get_image_key() -> bytes | None:
+    try:
+        from credentials import MEMORY_KEY_B64
+        if not MEMORY_KEY_B64:
+            return None
+        key = base64.urlsafe_b64decode(MEMORY_KEY_B64)
+        if len(key) != 32:
+            raise ValueError("MEMORY key must be 32 bytes for AES-256")
+        return key
+    except Exception:
+        return None
+
+
+def _encrypt_image_description(plaintext: str) -> str:
+    key = _get_image_key()
+    if not key:
+        return plaintext
+    try:
+        aesgcm = AESGCM(key)
+        nonce = os.urandom(12)
+        plaintext_bytes = plaintext.encode('utf-8')
+        ciphertext = aesgcm.encrypt(nonce, plaintext_bytes, None)
+        return base64.urlsafe_b64encode(nonce + ciphertext).decode('utf-8')
+    except Exception:
+        return plaintext
+
+
+def _decrypt_image_description(encrypted: str) -> str:
+    key = _get_image_key()
+    if not key:
+        return encrypted
+    try:
+        raw = base64.urlsafe_b64decode(encrypted.encode('utf-8'))
+        if len(raw) < 12:
+            return encrypted
+        nonce = raw[:12]
+        ciphertext = raw[12:]
+        aesgcm = AESGCM(key)
+        plaintext = aesgcm.decrypt(nonce, ciphertext, None)
+        return plaintext.decode('utf-8')
+    except Exception:
+        return encrypted
+
+
 def load_image_descriptions() -> dict:
     return get_json('image_descriptions', {}) or {}
 
@@ -277,7 +324,10 @@ def get_image_description(attach_id) -> str | None:
             set_json('image_descriptions', imgs)
         except Exception:
             pass
-        return ent.get('description')
+        description = ent.get('description')
+        if description:
+            description = _decrypt_image_description(description)
+        return description
     except Exception:
         return None
 
@@ -285,8 +335,9 @@ def get_image_description(attach_id) -> str | None:
 def save_image_description(attach_id, description: str) -> None:
     try:
         imgs = load_image_descriptions()
+        encrypted_description = _encrypt_image_description(description)
         imgs[str(attach_id)] = {
-            'description': description,
+            'description': encrypted_description,
             'last_used': datetime.now(timezone.utc).isoformat()
         }
         set_json('image_descriptions', imgs)
