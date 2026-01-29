@@ -148,7 +148,7 @@ sync_knowledge()
 
 backup_manager = BackupManager(storage._DB_PATH)
 
-ALLOWED_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
+ALLOWED_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 
 def check_send_perm(channel: discord.abc.Messageable) -> bool:
     try:
