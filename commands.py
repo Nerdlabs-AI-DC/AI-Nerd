@@ -1052,7 +1052,7 @@ Otherwise output only: False
         storage_embed.add_field(name="Quiz Records", value=len(daily_quiz), inline=True)
         storage_embed.add_field(name="Server Settings", value=len(serversettings), inline=True)
         storage_embed.add_field(name="User Metrics", value=len(user_metrics), inline=True)
-        storage_embed.add_field(name="Freewill Entries", value=len(recent_freewill), inline=True)
+        storage_embed.add_field(name="Natural Replies Entries", value=len(recent_freewill), inline=True)
         storage_embed.add_field(name="Recent Questions", value=len(recent_questions), inline=True)
         embeds.append(storage_embed)
 
