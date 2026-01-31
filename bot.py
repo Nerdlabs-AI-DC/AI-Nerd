@@ -1332,7 +1332,14 @@ async def freewill_task():
                 if not messages:
                     continue
                 
-                last_message = messages[0]
+                last_message = None
+                for msg in messages:
+                    if msg.author.id != bot.user.id:
+                        last_message = msg
+                        break
+                
+                if not last_message:
+                    continue
 
                 last_attempted_id = freewill_attempts.get(str(channel_id))
                 if last_attempted_id == last_message.id:
