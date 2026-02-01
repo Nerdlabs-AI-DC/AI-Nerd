@@ -573,7 +573,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
             if not notified:
                 try:
                     await message.reply(
-                        "You have been banned from using AI Nerd 2. Further messages will be ignored.\n-# [Terms of Service](<https://docs.google.com/document/d/1CBJ7tNOX0lKOsg4MZlJlc3TMkYQd_6mWXQ8ZWMtxix8/edit?usp=sharing>)",
+                        "You have been banned from using AI Nerd 2. Further messages will be ignored.\n-# [Terms of Service](<https://docs.google.com/document/d/1CBJ7tNOX0lKOsg4MZlJlc3TMkYQd_6mWXQ8ZWMtxix8/edit?usp=sharing>)\n-# If you believe this is a mistake, contact the developer via the Nerdlabs AI Discord server (link in about me).",
                         mention_author=False
                     )
                 except Exception:
