@@ -106,11 +106,12 @@ def calculate_abuse_score(user_id: int) -> dict:
             score += int(EMPTY_MESSAGE_POINTS * decay_factor)
 
         if content_hash in seen_hashes:
-            duplicate_count += 1
             prev_timestamp = seen_hashes[content_hash]
-            age_days = (now - timestamp) / (24 * 3600)
-            decay_factor = max(0.1, 1.0 - (age_days / ABUSE_SCORE_DECAY_DAYS))
-            score += int(DUPLICATE_MESSAGE_POINTS * decay_factor)
+            if abs(timestamp - prev_timestamp) <= 3600.0:
+                duplicate_count += 1
+                age_days = (now - timestamp) / (24 * 3600)
+                decay_factor = max(0.1, 1.0 - (age_days / ABUSE_SCORE_DECAY_DAYS))
+                score += int(DUPLICATE_MESSAGE_POINTS * decay_factor)
         
         seen_hashes[content_hash] = timestamp
         
@@ -187,7 +188,7 @@ def get_stats() -> dict:
     }
 
 
-def cleanup_old_records(days: int = 30) -> int:
+def cleanup_old_records(days: int = 7) -> int:
     try:
         deleted = storage.prune_old_abuse_tracking(days)
         with _LOCK:
