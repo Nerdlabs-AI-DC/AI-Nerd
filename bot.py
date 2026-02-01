@@ -509,7 +509,7 @@ async def on_ready():
         if DEBUG:
             print("Failed to start BackupManager")
     try:
-        deleted = abuse_detection.cleanup_old_records(days=30)
+        deleted = abuse_detection.cleanup_old_records(days=7)
         if DEBUG and deleted > 0:
             print(f"Cleaned up {deleted} old abuse tracking records")
     except Exception:
@@ -1434,7 +1434,7 @@ async def cleanup_abuse_tracking_task():
     await bot.wait_until_ready()
     while not bot.is_closed():
         try:
-            deleted = abuse_detection.cleanup_old_records(days=30)
+            deleted = abuse_detection.cleanup_old_records(days=7)
             if DEBUG and deleted > 0:
                 print(f"Cleaned up {deleted} old abuse tracking records")
         except Exception:
