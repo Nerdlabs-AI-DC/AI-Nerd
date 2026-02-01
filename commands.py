@@ -1116,14 +1116,53 @@ Otherwise output only: False
                 print(f"Graph generation error: {e}")
 
     @admin_group.command(name="ban", description="Ban or unban a user")
-    @app_commands.describe(action="Choose ban or unban", user="The user to affect")
+    @app_commands.describe(action="Choose ban, unban, or ban all high-risk users", user="The user to affect (not needed for ban-all-high-risk)")
     @app_commands.choices(action=[
         app_commands.Choice(name="Ban", value="ban"),
         app_commands.Choice(name="Unban", value="unban"),
+        app_commands.Choice(name="Ban All High Risk", value="ban-all-high-risk"),
     ])
-    async def ban_toggle(interaction: Interaction, action: str, user: discord.User):
+    async def ban_toggle(interaction: Interaction, action: str, user: discord.User = None):
         if interaction.user.id != OWNER_ID:
             return await interaction.response.send_message("You are not authorized to use this command.", ephemeral=True)
+        
+        if action == "ban-all-high-risk":
+            await interaction.response.defer(thinking=True, ephemeral=True)
+            try:
+                banned_map = storage.load_banned_map() or {}
+            except Exception:
+                banned_map = {}
+            
+            suspicious_users = abuse_detection.get_top_suspicious_users(limit=1000)
+            banned_count = 0
+            skipped_count = 0
+            
+            for user_data in suspicious_users:
+                if user_data['score'] > 100:
+                    uid = user_data['user_id']
+                    if uid == bot.user.id:
+                        continue
+                    if uid in banned_map:
+                        skipped_count += 1
+                        continue
+                    banned_map[uid] = {'notified': False}
+                    abuse_detection.clear_user_tracking(uid)
+                    banned_count += 1
+            
+            try:
+                storage.save_banned_map(banned_map)
+            except Exception:
+                return await interaction.followup.send("Failed to save banned users list.", ephemeral=True)
+            
+            await interaction.followup.send(
+                f"Banned {banned_count} users with abuse score > 100. ({skipped_count} already banned)",
+                ephemeral=True
+            )
+            return
+        
+        if user is None:
+            return await interaction.response.send_message("You must specify a user for ban/unban actions.", ephemeral=True)
+        
         try:
             banned_map = storage.load_banned_map() or {}
         except Exception:
