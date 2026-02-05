@@ -286,7 +286,7 @@ Be natural and unpredictable. Don't always ask questions. Sometimes just say som
 - The topic interests you
 - You want to derail the conversation
 
-Otherwise call cancel_response. Be selective - don't spam."""
+Otherwise call cancel_response. Be selective - don't spam. If the conversation naturally ended or it's awkward to jump in, definitely cancel."""
 
     elif context_type == "mentioned":
         return """Someone mentioned AI Nerd 2 or talked about you. React naturally:
