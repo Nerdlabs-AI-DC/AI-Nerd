@@ -1138,7 +1138,7 @@ Otherwise output only: False
             skipped_count = 0
             
             for user_data in suspicious_users:
-                if user_data['score'] > 100:
+                if user_data['score'] > 200:
                     uid = user_data['user_id']
                     if uid == bot.user.id:
                         continue
@@ -1155,7 +1155,7 @@ Otherwise output only: False
                 return await interaction.followup.send("Failed to save banned users list.", ephemeral=True)
             
             await interaction.followup.send(
-                f"Banned {banned_count} users with abuse score > 100. ({skipped_count} already banned)",
+                f"Banned {banned_count} users with abuse score > 200. ({skipped_count} already banned)",
                 ephemeral=True
             )
             return
@@ -1224,7 +1224,7 @@ Otherwise output only: False
             rapid = user_data['rapid_fire_count']
             mph = user_data['messages_per_hour']
             
-            risk = "🔴 CRITICAL" if score > 100 else "🟠 HIGH" if score > 50 else "🟡 MEDIUM" if score > 25 else "🟢 LOW"
+            risk = "🔴 CRITICAL" if score > 200 else "🟠 HIGH" if score > 100 else "🟡 MEDIUM" if score > 50 else "🟢 LOW"
             
             field_value = (
                 f"**Score:** {score} {risk}\n"
@@ -1256,7 +1256,7 @@ Otherwise output only: False
         
         embed = discord.Embed(
             title=f"Abuse Details For User {user.name} ({user.id})",
-            color=discord.Color.red() if abuse_score['score'] > 100 else discord.Color.orange() if abuse_score['score'] > 50 else discord.Color.yellow() if abuse_score['score'] > 25 else discord.Color.green()
+            color=discord.Color.red() if abuse_score['score'] > 200 else discord.Color.orange() if abuse_score['score'] > 100 else discord.Color.yellow() if abuse_score['score'] > 50 else discord.Color.green()
         )
         
         embed.add_field(name="Abuse Score", value=f"`{abuse_score['score']}`", inline=True)
