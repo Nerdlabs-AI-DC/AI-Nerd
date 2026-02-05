@@ -177,7 +177,7 @@ def clear_user_tracking(user_id: int) -> bool:
 def get_stats() -> dict:
     try:
         total_tracked = storage.get_tracked_users_count()
-        high_risk = len([u for u in get_top_suspicious_users(limit=1000) if u['score'] > 50])
+        high_risk = len([u for u in get_top_suspicious_users(limit=1000) if u['score'] > 100])
     except Exception:
         total_tracked = 0
         high_risk = 0
