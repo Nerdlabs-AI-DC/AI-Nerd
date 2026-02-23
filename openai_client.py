@@ -71,13 +71,15 @@ async def generate_response(messages, tools=None, tool_choice=None, model=MODEL,
 def embed_text(text: str) -> list:
     if DEBUG:
         print(f"""Embedding text "{text}" with model: {EMBED_MODEL}""")
-    
-    with OpenRouter(
-        api_key=ai_key,
-    ) as open_router:
-        res = open_router.embeddings.generate(input=text, model=EMBED_MODEL)
-        emb = res.data[0].embedding
-    return emb
+
+    try:
+        with OpenRouter(api_key=ai_key, timeout=10) as open_router: # Added timeout because this little shit kept freezing up my bot
+            res = open_router.embeddings.generate(input=text, model=EMBED_MODEL)
+            return res.data[0].embedding
+    except Exception as e:
+        if DEBUG:
+            print(f"embed_text failed: {e}")
+        return []
 
 def get_subreddit_posts(subreddit: str, limit: int):
     url = f"https://www.reddit.com/r/{subreddit}/top.json?t=day&limit={limit}"
