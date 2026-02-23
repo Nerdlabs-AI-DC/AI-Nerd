@@ -823,6 +823,239 @@ Otherwise output only: False
             save_daily_quiz_records(records)
 
 
+    #  Rock, Paper, Anything starts here
+
+    RPA_NERDSCORE_WIN  =  30
+    RPA_NERDSCORE_LOSS = -20
+
+    async def _rpa_ai_choose(history: list, current_rounds: list, user_id: int) -> str:
+        """Ask the AI to choose an item for the current round."""
+        past_summary = ""
+        if history:
+            lines = []
+            for i, match in enumerate(history[-5:], 1):
+                for r in match.get("rounds", []):
+                    lines.append(f"  - User chose '{r['user_item']}', AI chose '{r['ai_item']}', winner: {r['winner']}")
+            if lines:
+                past_summary = "Past matches with this user (most recent first):\n" + "\n".join(lines)
+
+        current_summary = ""
+        if current_rounds:
+            lines = [f"  Round {i+1}: user='{r['user_item']}', ai='{r['ai_item']}', winner={r['winner']}"
+                     for i, r in enumerate(current_rounds)]
+            current_summary = "Current match so far:\n" + "\n".join(lines)
+
+        round_num = len(current_rounds) + 1
+        messages = [
+            {
+                "role": "developer",
+                "content": (
+                    "You are playing a game called 'Rock, Paper, Anything'. "
+                    "In this game, any real-world object can be chosen, and a neutral judge will decide "
+                    "which object defeats the other based on logical or creative reasoning. "
+                    f"This is round {round_num} of 3. "
+                    "Your goal is to WIN. Use the user's history and current-match picks to predict "
+                    "what they might choose next, then pick something that would beat it. "
+                    "Be creative and strategic. Respond with ONLY the name of the object you choose "
+                    "(1-4 words, no punctuation, no explanation).\n\n"
+                    + (past_summary + "\n\n" if past_summary else "")
+                    + (current_summary if current_summary else "")
+                )
+            }
+        ]
+        if DEBUG:
+            print("--- RPA AI CHOOSE ---")
+            print(json.dumps(messages, indent=2))
+        completion = await generate_response(
+            messages,
+            tools=None,
+            tool_choice=None,
+            effort="low",
+            model=COMMANDS_MODEL,
+            user=f"rpa_ai_{user_id}"
+        )
+        choice = completion.output_text.strip().strip('"').strip("'")
+        if DEBUG:
+            print(f"AI chose: {choice}")
+        return choice or "rock"
+
+    async def _rpa_judge(user_item: str, ai_item: str) -> dict:
+        """Ask a judge AI who wins the round. Returns {winner, reason}."""
+        messages = [
+            {
+                "role": "developer",
+                "content": (
+                    "You are the impartial judge of a game called 'Rock, Paper, Anything'. "
+                    "Two players each chose an object. Decide which object wins based on logical, "
+                    "physical, or creatively reasonable grounds. If neither clearly beats the other "
+                    "or they are equivalent, it is a tie. "
+                    "Respond in JSON with exactly this structure: "
+                    '{"winner": "user" | "ai" | "tie", "reason": "<one sentence explanation>"}\n\n'
+                    f'Player 1 (user) chose: "{user_item}"\n'
+                    f'Player 2 (AI) chose: "{ai_item}"'
+                )
+            }
+        ]
+        if DEBUG:
+            print("--- RPA JUDGE ---")
+            print(json.dumps(messages, indent=2))
+        completion = await generate_response(
+            messages,
+            tools=None,
+            tool_choice=None,
+            effort="low",
+            model=COMMANDS_MODEL,
+            user="rpa_judge"
+        )
+        raw = completion.output_text.strip()
+        if DEBUG:
+            print(f"Judge response: {raw}")
+        try:
+            # strip markdown code fences if present
+            if raw.startswith("```"):
+                raw = raw.split("```")[1]
+                if raw.startswith("json"):
+                    raw = raw[4:]
+            data = json.loads(raw)
+            winner = data.get("winner", "tie")
+            reason = data.get("reason", "No reason given.")
+            if winner not in ("user", "ai", "tie"):
+                winner = "tie"
+            return {"winner": winner, "reason": reason}
+        except Exception:
+            return {"winner": "tie", "reason": raw[:200]}
+
+    def _rpa_build_round_text(rounds: list, start_index: int = 0) -> str:
+        """Build a summary string. start_index offsets the round number label."""
+        lines = []
+        for i, r in enumerate(rounds):
+            round_num = start_index + i + 1
+            w = r["winner"]
+            if w == "user":
+                outcome = "🟢 You win"
+            elif w == "ai":
+                outcome = "🔴 AI Nerd 2 wins"
+            else:
+                outcome = "🟡 Tie"
+            lines.append(
+                f"**Round {round_num}:** You: `{r['user_item']}` vs AI Nerd 2: `{r['ai_item']}`\n"
+                f"-# {outcome} — {r['reason']}"
+            )
+        return "\n".join(lines)
+
+    def _rpa_tally(rounds: list) -> tuple[int, int]:
+        user_wins = sum(1 for r in rounds if r["winner"] == "user")
+        ai_wins   = sum(1 for r in rounds if r["winner"] == "ai")
+        return user_wins, ai_wins
+
+    @fun_group.command(name="rock-paper-anything", description="Play a game of Rock, Paper, Anything")
+    @app_commands.describe(item="Your choice for round 1, pick anything")
+    async def rock_paper_anything(interaction: Interaction, item: str):
+        await interaction.response.defer(thinking=True)
+
+        user    = interaction.user
+        user_id = user.id
+        history = storage.get_rpa_user_history(user_id)
+
+        # -- Round 1: get AI choice, show it immediately, then judge --
+        ai_item = await _rpa_ai_choose(history, [], user_id)
+        pending_msg = await interaction.followup.send(
+            f"### 🪨 Rock, Paper, Anything\n**Round 1:** You: `{item}` vs AI Nerd 2: `{ai_item}`\n-# ⏳ Judging..."
+        )
+        verdict = await _rpa_judge(item, ai_item)
+        rounds  = [{"user_item": item, "ai_item": ai_item, **verdict}]
+        user_w, ai_w = _rpa_tally(rounds)
+        score_line = f"Score after round 1: 🟢 You {user_w} – {ai_w} AI Nerd 2 🔴"
+
+        view = discord.ui.View(timeout=120)
+
+        class RPAModal(discord.ui.Modal):
+            def __init__(self, round_number: int, current_rounds: list):
+                super().__init__(title=f"Round {round_number} | Choose Your Item")
+                self.round_number   = round_number
+                self.current_rounds = current_rounds
+                self.item_input     = discord.ui.TextInput(
+                    label="Your item",
+                    placeholder="e.g. rock, paper, nuclear bomb",
+                    min_length=1,
+                    max_length=64
+                )
+                self.add_item(self.item_input)
+
+            async def on_submit(self, modal_interaction: Interaction):
+                await modal_interaction.response.defer(thinking=True)
+                chosen    = self.item_input.value.strip()
+                ai_choice = await _rpa_ai_choose(history, self.current_rounds, user_id)
+
+                # Send with AI choice right away while judge thinks
+                rn = self.round_number
+                pending = await modal_interaction.followup.send(
+                    f"### 🪨 Rock, Paper, Anything\n**Round {rn}:** You: `{chosen}` vs AI Nerd 2: `{ai_choice}`\n-# ⏳ Judging..."
+                )
+
+                v = await _rpa_judge(chosen, ai_choice)
+                self.current_rounds.append({"user_item": chosen, "ai_item": ai_choice, **v})
+                uw, aw = _rpa_tally(self.current_rounds)
+
+                # Only this round's result (with correct round label)
+                this_round_text = _rpa_build_round_text(
+                    self.current_rounds[-1:],
+                    start_index=len(self.current_rounds) - 1
+                )
+
+                if self.round_number < 3:
+                    next_round = self.round_number + 1
+                    sc = f"Score after round {rn}: 🟢 You {uw} – {aw} AI Nerd 2 🔴"
+                    next_view = discord.ui.View(timeout=120)
+
+                    async def open_next_modal(btn_interaction: Interaction, nr=next_round, cr=self.current_rounds):
+                        if btn_interaction.user.id != user_id:
+                            return await btn_interaction.response.send_message("This isn't your game.", ephemeral=True)
+                        await btn_interaction.response.send_modal(RPAModal(nr, cr))
+
+                    next_btn = discord.ui.Button(label=f"Start Round {next_round}", style=discord.ButtonStyle.primary)
+                    next_btn.callback = open_next_modal
+                    next_view.add_item(next_btn)
+
+                    await pending.edit(content=f"### 🪨 Rock, Paper, Anything\n{this_round_text}\n\n{sc}", view=next_view)
+
+                else:
+                    # Final message — show all 3 rounds + result
+                    if uw > aw:
+                        result_line = f"🏆 **You win the match {uw}–{aw}!** +{RPA_NERDSCORE_WIN} nerdscore"
+                        increase_nerdscore(user_id, RPA_NERDSCORE_WIN)
+                        match_winner = "user"
+                    elif aw > uw:
+                        result_line = f"💀 **AI Nerd 2 wins the match {aw}–{uw}.** {RPA_NERDSCORE_LOSS} nerdscore"
+                        increase_nerdscore(user_id, RPA_NERDSCORE_LOSS)
+                        match_winner = "ai"
+                    else:
+                        result_line = "🤝 **It's a draw!** No nerdscore change."
+                        match_winner = "tie"
+
+                    storage.append_rpa_match(user_id, {
+                        "rounds": self.current_rounds,
+                        "match_winner": match_winner,
+                        "timestamp": datetime.datetime.utcnow().isoformat()
+                    })
+
+                    all_rounds_text = _rpa_build_round_text(self.current_rounds)
+                    await pending.edit(content=f"### 🪨 Rock, Paper, Anything\n{all_rounds_text}\n\n{result_line}")
+
+        async def open_round2(btn_interaction: Interaction):
+            if btn_interaction.user.id != user_id:
+                return await btn_interaction.response.send_message("This isn't your game.", ephemeral=True)
+            await btn_interaction.response.send_modal(RPAModal(2, rounds))
+
+        round2_btn = discord.ui.Button(label="Start Round 2", style=discord.ButtonStyle.primary)
+        round2_btn.callback = open_round2
+        view.add_item(round2_btn)
+
+        await pending_msg.edit(
+            content=f"### 🪨 Rock, Paper, Anything\n{_rpa_build_round_text(rounds)}\n\n{score_line}",
+            view=view
+        )
+
     bot.tree.add_command(fun_group)
 
     admin_group = app_commands.Group(name="admin", description="Admin commands")

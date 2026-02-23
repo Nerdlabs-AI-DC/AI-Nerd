@@ -441,6 +441,30 @@ def clear_abuse_tracking_records(user_id: int) -> None:
         raise
 
 
+def load_rpa_history() -> dict:
+    return get_json('rpa_history', {}) or {}
+
+
+def save_rpa_history(data: dict):
+    set_json('rpa_history', data or {})
+
+
+def get_rpa_user_history(user_id: int) -> list:
+    all_history = load_rpa_history()
+    return all_history.get(str(user_id), [])
+
+
+def append_rpa_match(user_id: int, match: dict) -> None:
+    all_history = load_rpa_history()
+    key = str(user_id)
+    matches = all_history.get(key, [])
+    matches.append(match)
+    if len(matches) > 10:
+        matches = matches[-10:]
+    all_history[key] = matches
+    save_rpa_history(all_history)
+
+
 def prune_old_abuse_tracking(days: int = 30) -> int:
     try:
         cutoff_timestamp = time.time() - (days * 24 * 3600)
