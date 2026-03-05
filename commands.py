@@ -1018,6 +1018,28 @@ Otherwise output only: False
                 if self.round_number < 3:
                     next_round = self.round_number + 1
                     sc = f"Score after round {rn}: 🟢 You {uw} – {aw} AI Nerd 2 🔴"
+
+                    # If someone already has 2 wins, end the match early
+                    if uw == 2 or aw == 2:
+                        if uw > aw:
+                            result_line = f"🏆 **You win the match {uw}–{aw}!** +{RPA_NERDSCORE_WIN} nerdscore"
+                            increase_nerdscore(user_id, RPA_NERDSCORE_WIN)
+                            match_winner = "user"
+                        else:
+                            result_line = f"💀 **AI Nerd 2 wins the match {aw}–{uw}.** {RPA_NERDSCORE_LOSS} nerdscore"
+                            increase_nerdscore(user_id, RPA_NERDSCORE_LOSS)
+                            match_winner = "ai"
+
+                        storage.append_rpa_match(user_id, {
+                            "rounds": self.current_rounds,
+                            "match_winner": match_winner,
+                            "timestamp": datetime.datetime.utcnow().isoformat()
+                        })
+
+                        all_rounds_text = _rpa_build_round_text(self.current_rounds)
+                        await pending.edit(content=f"### 🪨 Rock, Paper, Anything\n{all_rounds_text}\n\n{result_line}")
+                        return
+
                     next_view = discord.ui.View(timeout=120)
 
                     async def open_next_modal(btn_interaction: Interaction, nr=next_round, cr=self.current_rounds):
