@@ -970,7 +970,7 @@ Otherwise output only: False
         view = discord.ui.View(timeout=120)
 
         class RPAModal(discord.ui.Modal):
-            def __init__(self, round_number: int, current_rounds: list):
+            def __init__(self, round_number: int, current_rounds: list, parent_message):
                 super().__init__(title=f"Round {round_number} | Choose Your Item")
                 self.round_number   = round_number
                 self.current_rounds = current_rounds
@@ -981,9 +981,20 @@ Otherwise output only: False
                     max_length=64
                 )
                 self.add_item(self.item_input)
+                self.parent_message = parent_message
 
             async def on_submit(self, modal_interaction: Interaction):
                 await modal_interaction.response.defer(thinking=True)
+
+                disabled_view = discord.ui.View()
+                disabled_btn = discord.ui.Button(
+                    label=f"Start Round {self.round_number}",
+                    style=discord.ButtonStyle.primary,
+                    disabled=True
+                )
+                disabled_view.add_item(disabled_btn)
+                await self.parent_message.edit(view=disabled_view)
+
                 chosen    = self.item_input.value.strip()
                 ai_choice = await _rpa_ai_choose(history, self.current_rounds, user_id)
 
@@ -1011,7 +1022,7 @@ Otherwise output only: False
                     async def open_next_modal(btn_interaction: Interaction, nr=next_round, cr=self.current_rounds):
                         if btn_interaction.user.id != user_id:
                             return await btn_interaction.response.send_message("This isn't your game.", ephemeral=True)
-                        await btn_interaction.response.send_modal(RPAModal(nr, cr))
+                        await btn_interaction.response.send_modal(RPAModal(nr, cr, pending))
 
                     next_btn = discord.ui.Button(label=f"Start Round {next_round}", style=discord.ButtonStyle.primary)
                     next_btn.callback = open_next_modal
@@ -1045,7 +1056,7 @@ Otherwise output only: False
         async def open_round2(btn_interaction: Interaction):
             if btn_interaction.user.id != user_id:
                 return await btn_interaction.response.send_message("This isn't your game.", ephemeral=True)
-            await btn_interaction.response.send_modal(RPAModal(2, rounds))
+            await btn_interaction.response.send_modal(RPAModal(2, rounds, pending_msg))
 
         round2_btn = discord.ui.Button(label="Start Round 2", style=discord.ButtonStyle.primary)
         round2_btn.callback = open_round2
