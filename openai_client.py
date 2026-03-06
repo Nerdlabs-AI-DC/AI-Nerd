@@ -73,7 +73,7 @@ def embed_text(text: str) -> list:
         print(f"""Embedding text "{text}" with model: {EMBED_MODEL}""")
 
     try:
-        with OpenRouter(api_key=ai_key, timeout=10) as open_router: # Added timeout because this little shit kept freezing up my bot
+        with OpenRouter(api_key=ai_key, timeout_ms=10000) as open_router: # Added timeout because this little shit kept freezing up my bot
             res = open_router.embeddings.generate(input=text, model=EMBED_MODEL)
             return res.data[0].embedding
     except Exception as e:
