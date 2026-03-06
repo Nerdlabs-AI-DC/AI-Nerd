@@ -926,20 +926,19 @@ Otherwise output only: False
         except Exception:
             return {"winner": "tie", "reason": raw[:200]}
 
-    def _rpa_build_round_text(rounds: list, start_index: int = 0) -> str:
-        """Build a summary string. start_index offsets the round number label."""
+    def _rpa_build_round_text(rounds: list, username: str, start_index: int = 0) -> str:
         lines = []
         for i, r in enumerate(rounds):
             round_num = start_index + i + 1
             w = r["winner"]
             if w == "user":
-                outcome = "🟢 You win"
+                outcome = f"🟢 {username} wins"
             elif w == "ai":
                 outcome = "🔴 AI Nerd 2 wins"
             else:
                 outcome = "🟡 Tie"
             lines.append(
-                f"**Round {round_num}:** You: `{r['user_item']}` vs AI Nerd 2: `{r['ai_item']}`\n"
+                f"**Round {round_num}:** {username}: `{r['user_item']}` vs AI Nerd 2: `{r['ai_item']}`\n"
                 f"-# {outcome} — {r['reason']}"
             )
         return "\n".join(lines)
@@ -956,25 +955,27 @@ Otherwise output only: False
 
         user    = interaction.user
         user_id = user.id
+        uname   = user.display_name
         history = storage.get_rpa_user_history(user_id)
 
         # -- Round 1: get AI choice, show it immediately, then judge --
         ai_item = await _rpa_ai_choose(history, [], user_id)
         pending_msg = await interaction.followup.send(
-            f"### 🪨 Rock, Paper, Anything\n**Round 1:** You: `{item}` vs AI Nerd 2: `{ai_item}`\n-# ⏳ Judging..."
+            f"### 🪨 Rock, Paper, Anything\n**Round 1:** {uname}: `{item}` vs AI Nerd 2: `{ai_item}`\n-# ⏳ Judging..."
         )
         verdict = await _rpa_judge(item, ai_item)
         rounds  = [{"user_item": item, "ai_item": ai_item, **verdict}]
         user_w, ai_w = _rpa_tally(rounds)
-        score_line = f"Score after round 1: 🟢 You {user_w} – {ai_w} AI Nerd 2 🔴"
+        score_line = f"Score after round 1: 🟢 {uname} {user_w} – {ai_w} AI Nerd 2 🔴"
 
         view = discord.ui.View(timeout=120)
 
         class RPAModal(discord.ui.Modal):
-            def __init__(self, round_number: int, current_rounds: list, parent_message):
+            def __init__(self, round_number: int, current_rounds: list, parent_message, username: str):
                 super().__init__(title=f"Round {round_number} | Choose Your Item")
                 self.round_number   = round_number
                 self.current_rounds = current_rounds
+                self.username       = username
                 self.item_input     = discord.ui.TextInput(
                     label="Your item",
                     placeholder="e.g. rock, paper, nuclear bomb",
@@ -1002,7 +1003,7 @@ Otherwise output only: False
                 # Send with AI choice right away while judge thinks
                 rn = self.round_number
                 pending = await modal_interaction.followup.send(
-                    f"### 🪨 Rock, Paper, Anything\n**Round {rn}:** You: `{chosen}` vs AI Nerd 2: `{ai_choice}`\n-# ⏳ Judging..."
+                    f"### 🪨 Rock, Paper, Anything\n**Round {rn}:** {uname}: `{chosen}` vs AI Nerd 2: `{ai_choice}`\n-# ⏳ Judging..."
                 )
 
                 v = await _rpa_judge(chosen, ai_choice)
@@ -1012,17 +1013,18 @@ Otherwise output only: False
                 # Only this round's result (with correct round label)
                 this_round_text = _rpa_build_round_text(
                     self.current_rounds[-1:],
+                    self.username,
                     start_index=len(self.current_rounds) - 1
                 )
 
                 if self.round_number < 3:
                     next_round = self.round_number + 1
-                    sc = f"Score after round {rn}: 🟢 You {uw} – {aw} AI Nerd 2 🔴"
+                    sc = f"Score after round {rn}: 🟢 {uname} {uw} – {aw} AI Nerd 2 🔴"
 
                     # If someone already has 2 wins, end the match early
                     if uw == 2 or aw == 2:
                         if uw > aw:
-                            result_line = f"🏆 **You win the match {uw}–{aw}!** +{RPA_NERDSCORE_WIN} nerdscore"
+                            result_line = f"🏆 **{uname} wins the match {uw}–{aw}!** +{RPA_NERDSCORE_WIN} nerdscore"
                             increase_nerdscore(user_id, RPA_NERDSCORE_WIN)
                             match_winner = "user"
                         else:
@@ -1036,7 +1038,7 @@ Otherwise output only: False
                             "timestamp": datetime.datetime.utcnow().isoformat()
                         })
 
-                        all_rounds_text = _rpa_build_round_text(self.current_rounds)
+                        all_rounds_text = _rpa_build_round_text(self.current_rounds, self.username)
                         await pending.edit(content=f"### 🪨 Rock, Paper, Anything\n{all_rounds_text}\n\n{result_line}")
                         return
 
@@ -1045,7 +1047,7 @@ Otherwise output only: False
                     async def open_next_modal(btn_interaction: Interaction, nr=next_round, cr=self.current_rounds):
                         if btn_interaction.user.id != user_id:
                             return await btn_interaction.response.send_message("This isn't your game.", ephemeral=True)
-                        await btn_interaction.response.send_modal(RPAModal(nr, cr, pending))
+                        await btn_interaction.response.send_modal(RPAModal(nr, cr, pending, self.username))
 
                     next_btn = discord.ui.Button(label=f"Start Round {next_round}", style=discord.ButtonStyle.primary)
                     next_btn.callback = open_next_modal
@@ -1056,7 +1058,7 @@ Otherwise output only: False
                 else:
                     # Final message — show all 3 rounds + result
                     if uw > aw:
-                        result_line = f"🏆 **You win the match {uw}–{aw}!** +{RPA_NERDSCORE_WIN} nerdscore"
+                        result_line = f"🏆 **{uname} wins the match {uw}–{aw}!** +{RPA_NERDSCORE_WIN} nerdscore"
                         increase_nerdscore(user_id, RPA_NERDSCORE_WIN)
                         match_winner = "user"
                     elif aw > uw:
@@ -1073,20 +1075,20 @@ Otherwise output only: False
                         "timestamp": datetime.datetime.utcnow().isoformat()
                     })
 
-                    all_rounds_text = _rpa_build_round_text(self.current_rounds)
+                    all_rounds_text = _rpa_build_round_text(self.current_rounds, self.username)
                     await pending.edit(content=f"### 🪨 Rock, Paper, Anything\n{all_rounds_text}\n\n{result_line}")
 
         async def open_round2(btn_interaction: Interaction):
             if btn_interaction.user.id != user_id:
                 return await btn_interaction.response.send_message("This isn't your game.", ephemeral=True)
-            await btn_interaction.response.send_modal(RPAModal(2, rounds, pending_msg))
+            await btn_interaction.response.send_modal(RPAModal(2, rounds, pending_msg, uname))
 
         round2_btn = discord.ui.Button(label="Start Round 2", style=discord.ButtonStyle.primary)
         round2_btn.callback = open_round2
         view.add_item(round2_btn)
 
         await pending_msg.edit(
-            content=f"### 🪨 Rock, Paper, Anything\n{_rpa_build_round_text(rounds)}\n\n{score_line}",
+            content=f"### 🪨 Rock, Paper, Anything\n{_rpa_build_round_text(rounds, uname)}\n\n{score_line}",
             view=view
         )
 
