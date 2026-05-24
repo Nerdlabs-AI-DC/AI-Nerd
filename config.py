@@ -13,7 +13,7 @@ COMMANDS_MODEL = "openai/gpt-5.4-mini" # Model to use without personality (defau
 IMAGE_MODEL = "openai/gpt-5.4-nano" # Model to use for image analysis (default: "openai/gpt-5.4-nano")
 MEMORY_TOP_K = 3 # Number of relevant memories to include in context (default: 3)
 KNOWLEDGE_TOP_K = 3 # Number of relevant knowledge items to include in context (default: 3)
-DEBUG = False # Enables debug logging (default: False)
+DEBUG = True # Enables debug logging (default: False)
 NATURAL_REPLIES_INTERVAL = 180 # Time in seconds between natural replies message checks (default: 180)
 MEMORY_LIMIT = 500 # Max number of memories to store (per user and global memories) (default: 500)
 DAILY_MESSAGE_LIMIT = 50 # Max number of messages per user per day before switching to fallback model (default: 50)
@@ -43,7 +43,8 @@ KNOWLEDGE_ITEMS = [
     "Admins can change how often the bot speaks on its own by adjusting the Natural Replies rate.",
     "The bot enforces a short rate limit to prevent spam or flooding.",
     "Users can delete their personal memory with `/delete-memories`.",
-    "The bot's status message is updated daily based on current news headlines."
+    "The bot's status message is updated daily based on current news headlines.",
+    "Users can create their own AI Discord bots by using a software called WaterBot: https://purpyel.dev/waterbot"
 ]
 
 
