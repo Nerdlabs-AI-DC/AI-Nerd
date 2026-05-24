@@ -647,14 +647,19 @@ async def send_message(message, system_msg=None, force_response=False, functions
         else:
             moved = True
     history = []
-    last_author_id = None
+    turn_count = 0
     last_role = None
-    async for msg in history_channel.history(limit=HISTORY_SIZE*2+1, oldest_first=False):
+    async for msg in history_channel.history(limit=HISTORY_SIZE*4+1, oldest_first=False):
         if msg.id == message.id:
             continue
 
         if msg.author.id == bot.user.id:
             role = 'assistant'
+            if role != last_role:
+                if turn_count >= HISTORY_SIZE:
+                    break
+                turn_count += 1
+                last_role = role
             content_item = msg.content or ''
             try:
                 content_item = await enrich_mentions(content_item, msg.guild)
@@ -664,16 +669,15 @@ async def send_message(message, system_msg=None, force_response=False, functions
                 content_item = collapse_custom_emojis_to_names(content_item)
             except Exception:
                 pass
-            if last_role == 'assistant' and last_author_id == msg.author.id and history:
-                prev = history[-1]
-                prev['content'] = (content_item + '\n' + prev['content']).strip()
-            else:
-                history.append({'role': role, 'content': content_item})
-                last_role = role
-                last_author_id = msg.author.id
+            history.append({'role': role, 'content': content_item})
 
         else:
             role = 'user'
+            if role != last_role:
+                if turn_count >= HISTORY_SIZE:
+                    break
+                turn_count += 1
+                last_role = role
             content = []
             try:
                 replied_message = await msg.channel.fetch_message(msg.reference.message_id)
@@ -723,13 +727,7 @@ async def send_message(message, system_msg=None, force_response=False, functions
                         'text': f"Attachment: {attach.filename}"
                     })
 
-
             history.append({'role': role, 'content': content})
-            last_role = role
-            last_author_id = msg.author.id
-
-        if len(history) >= HISTORY_SIZE:
-            break
     history.reverse()
     if moved:
         history.append({'role': 'system', 'content': 'The conversation has moved to a different channel.'})
